@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DISER SAS - Import ERP</title>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Font Awesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar Navigation -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <div class="logo">
+                    <i class="fa-solid fa-ship"></i>
+                    <span>DISER Imports</span>
+                </div>
+            </div>
+            <nav class="sidebar-nav">
+                <ul>
+                    <li class="active"><a href="#"><i class="fa-solid fa-chart-line"></i> Dashboard</a></li>
+                    <li><a href="#"><i class="fa-solid fa-folder-open"></i> Folios de Importación</a></li>
+                    <li><a href="#"><i class="fa-solid fa-file-invoice-dollar"></i> Cotizaciones</a></li>
+                    <li><a href="#"><i class="fa-solid fa-boxes-stacked"></i> Catálogo Textil</a></li>
+                    <li><a href="#"><i class="fa-solid fa-users"></i> Proveedores</a></li>
+                </ul>
+            </nav>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="main-content">
+            <!-- Header -->
+            <header class="top-header">
+                <div class="search-bar">
+                    <i class="fa-solid fa-search"></i>
+                    <input type="text" placeholder="Buscar folios, proveedores, SKUs...">
+                </div>
+                <div class="user-profile">
+                    <button class="btn-primary" id="newFolioBtn"><i class="fa-solid fa-plus"></i> Nuevo Folio</button>
+                    <div class="avatar">
+                        <img src="https://ui-avatars.com/api/?name=Import+User&background=0D8ABC&color=fff" alt="User">
+                    </div>
+                </div>
+            </header>
+
+            <!-- Dashboard Content -->
+            <div class="dashboard-content">
+                <div class="header-title">
+                    <h1>Resumen de Operaciones</h1>
+                    <p>Monitoreo en tiempo real de importaciones activas.</p>
+                </div>
+
+                <!-- Stats Cards -->
+                <div class="stats-grid">
+                    <div class="stat-card" style="cursor: pointer;">
+                        <div class="stat-icon" style="background: rgba(59, 130, 246, 0.2); color: #3b82f6;">
+                            <i class="fa-solid fa-gears"></i>
+                        </div>
+                        <div class="stat-info">
+                            <h3>En Producción</h3>
+                            <h2 id="stat-produccion">0</h2>
+                        </div>
+                    </div>
+                    <div class="stat-card" style="cursor: pointer;">
+                        <div class="stat-icon" style="background: rgba(245, 158, 11, 0.2); color: #f59e0b;">
+                            <i class="fa-solid fa-ship"></i>
+                        </div>
+                        <div class="stat-info">
+                            <h3>En Tránsito</h3>
+                            <h2 id="stat-transito">0</h2>
+                        </div>
+                    </div>
+                    <div class="stat-card" style="cursor: pointer;">
+                        <div class="stat-icon" style="background: rgba(239, 68, 68, 0.2); color: #ef4444;">
+                            <i class="fa-solid fa-building-flag"></i>
+                        </div>
+                        <div class="stat-info">
+                            <h3>En Aduana</h3>
+                            <h2 id="stat-aduana">0</h2>
+                        </div>
+                    </div>
+                    <div class="stat-card" style="cursor: pointer;">
+                        <div class="stat-icon" style="background: rgba(16, 185, 129, 0.2); color: #10b981;">
+                            <i class="fa-solid fa-warehouse"></i>
+                        </div>
+                        <div class="stat-info">
+                            <h3>En Depósito</h3>
+                            <h2 id="stat-deposito">0</h2>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Active Folios List -->
+                <div class="folios-section">
+                    <div class="section-header">
+                        <h2>Folios Activos</h2>
+                        <div class="view-toggles">
+                            <button class="active"><i class="fa-solid fa-list"></i></button>
+                            <button><i class="fa-solid fa-border-all"></i></button>
+                        </div>
+                    </div>
+                    
+                    <div class="table-container">
+                        <table class="folios-table">
+                            <thead>
+                                <tr>
+                                    <th>Folio</th>
+                                    <th>Proveedor</th>
+                                    <th>Mercadería</th>
+                                    <th>Estado</th>
+                                    <th>ETA Previsto</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="foliosTableBody">
+                                <!-- Data injected via JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- New Folio Modal -->
+    <div class="modal-overlay" id="newFolioModal">
+        <div class="modal-content" style="width: 500px; padding-bottom: 0;">
+            <div class="modal-header">
+                <h2>Crear Nuevo Folio</h2>
+                <button class="close-btn" id="closeNewFolioBtn" aria-label="Close modal">&#x2715;</button>
+            </div>
+            <div class="modal-body">
+                <form id="newFolioForm">
+                    <div class="detail-group" style="margin-bottom: 16px;">
+                        <label>Proveedor</label>
+                        <input type="text" id="inputSupplier" placeholder="Ej. Guangzhou Textiles" style="width:100%; padding:10px; background:var(--bg-main); border:1px solid var(--border); color:white; border-radius:6px; font-size:1rem; outline:none;" required>
+                    </div>
+                    <div class="detail-group" style="margin-bottom: 16px;">
+                        <label>Descripción de Mercadería</label>
+                        <input type="text" id="inputDescription" placeholder="Ej. Poliester Estampado (Cont. 20')" style="width:100%; padding:10px; background:var(--bg-main); border:1px solid var(--border); color:white; border-radius:6px; font-size:1rem; outline:none;" required>
+                    </div>
+                    <div style="display:flex; gap:16px; margin-bottom: 16px;">
+                        <div class="detail-group" style="flex:1;">
+                            <label>Fecha de Compra</label>
+                            <input type="date" id="inputPurchaseDate" style="width:100%; padding:10px; background:var(--bg-main); border:1px solid var(--border); color:white; border-radius:6px; font-size:1rem; outline:none; color-scheme: dark;" required>
+                        </div>
+                        <div class="detail-group" style="flex:1;">
+                            <label>¿Artículos Nuevos?</label>
+                            <select id="inputNewItems" style="width:100%; padding:10px; background:var(--bg-main); border:1px solid var(--border); color:white; border-radius:6px; font-size:1rem; outline:none;">
+                                <option value="false">No</option>
+                                <option value="true">Sí</option>
+                            </select>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" id="cancelNewFolioBtn">Cancelar</button>
+                <button class="btn-primary" id="saveNewFolioBtn"><i class="fa-solid fa-cloud-arrow-up"></i> Guardar Folio</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Folio Detail Modal -->
+    <div class="modal-overlay" id="folioModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div>
+                    <h2 id="modalFolioId">IMP-000</h2>
+                    <span class="status-badge" id="modalStatusBadge">Estado</span>
+                </div>
+                <!-- Fixed close button to have a clear click area and separate icon -->
+                <button class="close-btn" id="closeModalBtn" aria-label="Close modal">&#x2715;</button>
+            </div>
+            
+            <div class="modal-body" style="padding: 0; display:flex; flex-direction:column; height: 100%;">
+                
+                <!-- Status Tracker Workflow -->
+                <div class="status-tracker" style="background:var(--bg-main); padding:20px; border-bottom:1px solid var(--border);">
+                    <div class="step active"><i class="fa-solid fa-clipboard-list"></i><span>Cotización</span></div>
+                    <div class="step-line active"></div>
+                    <div class="step active" id="track-produccion"><i class="fa-solid fa-gears"></i><span>Producción</span></div>
+                    <div class="step-line" id="line-1"></div>
+                    <div class="step" id="track-transito"><i class="fa-solid fa-ship"></i><span>Tránsito</span></div>
+                    <div class="step-line" id="line-2"></div>
+                    <div class="step" id="track-aduana"><i class="fa-solid fa-building-flag"></i><span>Aduana</span></div>
+                    <div class="step-line" id="line-3"></div>
+                    <div class="step" id="track-deposito"><i class="fa-solid fa-warehouse"></i><span>Depósito</span></div>
+                </div>
+
+                <!-- Tabs Navigation -->
+                <div class="modal-tabs" style="display:flex; border-bottom:1px solid var(--border); background:var(--bg-surface); padding: 0 20px; overflow-x: auto;">
+                    <button class="tab-btn active-tab" id="btn-tab-general" onclick="switchTab('tab-general')" style="padding: 16px 20px; border:none; background:transparent; color:white; border-bottom:3px solid var(--primary); font-weight:600; cursor:pointer; white-space:nowrap;">Info General</button>
+                    <button class="tab-btn" id="btn-tab-archivos" onclick="switchTab('tab-archivos')" style="padding: 16px 20px; border:none; background:transparent; color:var(--text-muted); font-weight:500; cursor:pointer; white-space:nowrap;">Gestión Documental</button>
+                    <button class="tab-btn" id="btn-tab-economico" onclick="switchTab('tab-economico')" style="padding: 16px 20px; border:none; background:transparent; color:var(--text-muted); font-weight:500; cursor:pointer; white-space:nowrap;"><i class="fa-solid fa-coins"></i> Resumen Económico</button>
+                </div>
+
+                <!-- Tab: General Info -->
+                <div class="tab-content active" id="tab-general" style="padding: 32px; overflow-y:auto; flex:1;">
+                    <div id="modalDynamicData" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px;">
+                        <!-- Toda la info de la fila se inyectará aquí -->
+                    </div>
+                </div>
+
+                <!-- Tab: Documentos -->
+                <div class="tab-content" id="tab-archivos" style="padding: 32px; overflow-y:auto; flex:1; display:none;">
+                    <p style="color:var(--text-muted); margin-bottom: 20px; font-size:1rem;">
+                        <i class="fa-brands fa-google-drive"></i> Los archivos cargados aquí viajan directo a tu Google Drive para su análisis por IA.
+                    </p>
+                    <div id="docsGridContainer" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px;">
+                        <!-- JS content -->
+                    </div>
+                </div>
+
+                <!-- Tab: Resumen Económico -->
+                <div class="tab-content" id="tab-economico" style="padding: 32px; overflow-y:auto; flex:1; display:none;">
+                    <!-- JS content with real data from 'Resumen importaciones' -->
+                </div>
+
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" id="modalCloseActionBtn">Cerrar</button>
+                <button class="btn-primary">Actualizar Folio</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main JS logic -->
+    <script src="app.js"></script>
+</body>
+</html>
