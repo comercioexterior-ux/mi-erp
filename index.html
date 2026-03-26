@@ -22,11 +22,11 @@
             </div>
             <nav class="sidebar-nav">
                 <ul>
-                    <li class="active"><a href="#"><i class="fa-solid fa-chart-line"></i> Dashboard</a></li>
-                    <li><a href="#"><i class="fa-solid fa-folder-open"></i> Folios de Importación</a></li>
-                    <li><a href="#"><i class="fa-solid fa-file-invoice-dollar"></i> Cotizaciones</a></li>
-                    <li><a href="#"><i class="fa-solid fa-boxes-stacked"></i> Catálogo Textil</a></li>
-                    <li><a href="#"><i class="fa-solid fa-users"></i> Proveedores</a></li>
+                    <li class="active" id="nav-dashboard"><a href="#" onclick="switchView('import')"><i class="fa-solid fa-chart-line"></i> Dashboard</a></li>
+                    <li id="nav-import"><a href="#" onclick="switchView('import')"><i class="fa-solid fa-folder-open"></i> Folios de Importación</a></li>
+                    <li id="nav-quotes"><a href="#" onclick="switchView('quotes')"><i class="fa-solid fa-file-invoice-dollar"></i> Cotizaciones</a></li>
+                    <li id="nav-catalog"><a href="#" onclick="switchView('catalog')"><i class="fa-solid fa-boxes-stacked"></i> Catálogo Textil</a></li>
+                    <li id="nav-suppliers"><a href="#" onclick="switchView('suppliers')"><i class="fa-solid fa-users"></i> Proveedores</a></li>
                 </ul>
             </nav>
         </aside>
@@ -37,7 +37,7 @@
             <header class="top-header">
                 <div class="search-bar">
                     <i class="fa-solid fa-search"></i>
-                    <input type="text" placeholder="Buscar folios, proveedores, SKUs...">
+                    <input type="text" id="searchInput" placeholder="Buscar folios, proveedores, SKUs..." oninput="handleSearch(this.value)">
                 </div>
                 <div class="user-profile">
                     <button class="btn-primary" id="newFolioBtn"><i class="fa-solid fa-plus"></i> Nuevo Folio</button>
