@@ -259,14 +259,43 @@ const renderDocsTab = (folioId, adjString) => {
     container.innerHTML = '';
     let docs = {};
     try { docs = JSON.parse(adjString || '{}'); } catch(e) {}
-    const DOCS = ["Factura comercial", "Comprobante de seña", "Comprobante de balance", "Factura de flete internacional", "DUA", "Factura de flete nacional", "Packing list"];
-    DOCS.forEach(name => {
-        const file = docs[name];
-        const cleanId = name.replace(/\s/g, '');
-        container.innerHTML += `<div class="doc-box"><h4>${name}</h4>${file ? `
-            <div class="doc-active"><i class="fa-solid fa-file-pdf"></i> <span>Cargado</span></div>
-            <div class="doc-actions"><a href="${file.url}" target="_blank" class="btn-sm"><i class="fa-solid fa-eye"></i></a><button onclick="deleteDocument('${folioId}', '${name}')" class="btn-sm btn-danger"><i class="fa-solid fa-trash"></i></button></div>
-        ` : `<div class="doc-pending">Pendiente</div><button class="btn-primary btn-full" onclick="document.getElementById('in-${cleanId}').click()">Subir</button>`}<input type="file" id="in-${cleanId}" style="display:none" onchange="uploadToDrive('${folioId}', '${name}', this)"></div>`;
+    
+    // Lista de documentos que buscamos
+    const DOC_TYPES = [
+        { name: "Factura comercial", icon: "fa-file-invoice" },
+        { name: "Comprobante de seña", icon: "fa-receipt" },
+        { name: "Comprobante de balance", icon: "fa-receipt" },
+        { name: "Factura de flete internacional", icon: "fa-ship" },
+        { name: "DUA", icon: "fa-file-shield" },
+        { name: "Packing list", icon: "fa-list-check" },
+        { name: "BL", icon: "fa-anchor" },
+        { name: "Quotation request", icon: "fa-file-signature" }
+    ];
+
+    DOC_TYPES.forEach(doc => {
+        const file = docs[doc.name];
+        const cleanId = doc.name.replace(/\s/g, '');
+        const isDrive = file && file.isDrive;
+
+        container.innerHTML += `
+            <div class="doc-box">
+                <h4><i class="fa-solid ${doc.icon}"></i> ${doc.name}</h4>
+                ${file ? `
+                    <div class="doc-active">
+                        <i class="fa-solid ${isDrive ? 'fa-cloud' : 'fa-file-pdf'}"></i> 
+                        <span>${isDrive ? 'Detectado en Drive' : 'Cargado'}</span>
+                    </div>
+                    <div class="doc-actions">
+                        <a href="${file.url}" target="_blank" class="btn-sm"><i class="fa-solid fa-eye"></i> Ver</a>
+                        ${!isDrive ? `<button onclick="deleteDocument('${folioId}', '${doc.name}')" class="btn-sm btn-danger"><i class="fa-solid fa-trash"></i></button>` : ''}
+                    </div>
+                ` : `
+                    <div class="doc-pending">No detectado</div>
+                    <button class="btn-primary btn-full" onclick="document.getElementById('in-${cleanId}').click()"><i class="fa-solid fa-upload"></i> Subir Manual</button>
+                `}
+                <input type="file" id="in-${cleanId}" style="display:none" onchange="uploadToDrive('${folioId}', '${doc.name}', this)">
+            </div>
+        `;
     });
 };
 
