@@ -1,4 +1,4 @@
-let SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbx0515zGX8gt5rFcVAkjlSGg3UO7RjNXL21EG-UqS0Zxf0JHRNM0aT1pl-2xYHPUtwc/exec';
+let SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxASsSOlKEpgjtiC2CG9gviznG88tCGwPkbFhoCsDrpxMy7VW2A-1ThDHzagfDyrUJI/exec';
 let folios = [];
 let allData = []; // Backup for searching
 let currentFilter = 'all';
@@ -123,7 +123,18 @@ const renderTable = () => {
     
     // Header dinámico según el Tab
     if (currentTab === 'import') {
-        thead.innerHTML = `<th>Folio</th><th>Proveedor</th><th>Mercadería</th><th>Estado</th><th>ETA Previsto</th><th>Acciones</th>`;
+        thead.innerHTML = `
+            <th>Folio</th>
+            <th>Proveedor</th>
+            <th>Mercadería</th>
+            <th>Estado</th>
+            <th title="Carga">Carga</th>
+            <th title="Volumen">Vol</th>
+            <th title="Contenedores">Cont.</th>
+            <th title="Bultos">Bultos</th>
+            <th>ETA</th>
+            <th>Acciones</th>
+        `;
     } else {
         // Para otros tabs, mostramos las primeras 5 columnas encontradas
         if (allData.length > 0) {
@@ -138,7 +149,7 @@ const renderTable = () => {
     }
 
     if (displayItems.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="10" style="text-align:center; padding: 40px;">No se encontraron resultados.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="15" style="text-align:center; padding: 40px;">No se encontraron resultados.</td></tr>`;
         return;
     }
 
@@ -151,9 +162,13 @@ const renderTable = () => {
             tr.innerHTML = `
                 <td><strong>${getVal(item, ['Impo', 'Folio', 'Id']) || 'S/N'}</strong></td>
                 <td>${getVal(item, ['Proveedor']) || '-'}</td>
-                <td>${(getVal(item, ['Mercaderia', 'Articulo']) || '-').substring(0, 40)}</td>
+                <td>${(getVal(item, ['Mercaderia', 'Articulo']) || '-').substring(0, 25)}...</td>
                 <td>${getStatusBadgeHtml(getVal(item, ['Estado Carga', 'Estado', 'Status']))}</td>
-                <td>${getVal(item, ['ETA', 'ETA previsto', 'Fecha Arribo']) || '-'}</td>
+                <td>${getVal(item, ['Carga']) || '-'}</td>
+                <td>${getVal(item, ['Volumen']) || '-'}</td>
+                <td>${getVal(item, ['Contenedores']) || '-'}</td>
+                <td>${getVal(item, ['Bultos']) || '-'}</td>
+                <td>${getVal(item, ['ETA', 'ETA previsto']) || '-'}</td>
                 <td><button class="action-btn" onclick="openModal(${originalIndex}, event)"><i class="fa-solid fa-arrow-right"></i></button></td>
             `;
         } else {
@@ -172,7 +187,10 @@ const renderTable = () => {
 
 const loadData = async () => {
     const tbody = document.getElementById('foliosTableBody');
-    if(tbody) tbody.innerHTML = '<tr><td colspan="10" style="text-align:center; padding: 40px;"><i class="fa-solid fa-sync fa-spin"></i> Cargando datos...</td></tr>';
+    const syncBtn = document.getElementById('syncDataBtn');
+    if(syncBtn) syncBtn.innerHTML = '<i class="fa-solid fa-sync fa-spin"></i> Actualizando...';
+
+    if(tbody) tbody.innerHTML = '<tr><td colspan="15" style="text-align:center; padding: 40px;"><i class="fa-solid fa-sync fa-spin"></i> Cargando datos...</td></tr>';
     
     try {
         const url = `${SCRIPT_URL}?tab=${currentTab}`;
@@ -189,7 +207,9 @@ const loadData = async () => {
 
     } catch (e) {
         console.error("Connection Error:", e);
-        if(tbody) tbody.innerHTML = `<tr><td colspan="10" style="text-align:center; color:red; padding:20px;">Error: ${e.message} <button onclick="loadData()">Reintentar</button></td></tr>`;
+        if(tbody) tbody.innerHTML = `<tr><td colspan="15" style="text-align:center; color:red; padding:20px;">Error: ${e.message} <button onclick="loadData()">Reintentar</button></td></tr>`;
+    } finally {
+        if(syncBtn) syncBtn.innerHTML = '<i class="fa-solid fa-sync"></i> Actualizar datos';
     }
 };
 
@@ -204,8 +224,8 @@ window.openModal = (index, event) => {
 
     const dynamicContainer = document.getElementById('modalDynamicData');
     const GROUPS = [
-        { title: 'Pedido y Producto', icon: 'fa-box', keys: ['Impo', 'Confirmacion', 'Proveedor', 'Mercaderia'] },
-        { title: 'Logística', icon: 'fa-truck', keys: ['Origen', 'Incoterm', 'ETD', 'ETA', 'Arriba en (dias)'] },
+        { title: 'Pedido y Producto', icon: 'fa-box', keys: ['Impo', 'Proveedor', 'Mercaderia'] },
+        { title: 'Logística', icon: 'fa-truck', keys: ['Origen', 'Incoterm', 'ETD', 'ETA', 'Carga', 'Volumen', 'Contenedores', 'Bultos'] },
         { title: 'Gestión', icon: 'fa-clipboard-list', keys: ['Estado Carga', 'Confirmacion Pedido', 'Zureo', 'LP'] }
     ];
     
@@ -220,7 +240,7 @@ window.openModal = (index, event) => {
     });
     dynamicContainer.innerHTML = html;
 
-    renderEconomicTab(folio.Economico);
+    renderEconomicTab(folio);
     renderDocsTab(getVal(folio, ['Impo']), getVal(folio, ['Adjunto', 'Documentos']));
     updateTracker(getStatusCode(getVal(folio, ['Estado Carga', 'Estado'])));
     switchTab('tab-general');
@@ -233,25 +253,55 @@ window.openGenericModal = (index, event) => {
     alert(JSON.stringify(item, null, 2)); // Placeholder para vista genérica
 };
 
-const renderEconomicTab = (econ) => {
+const renderEconomicTab = (folio) => {
     const container = document.getElementById('tab-economico');
     if(!container) return;
-    if(!econ) {
-        container.innerHTML = `<div style="text-align:center; padding:50px; opacity:0.5;"><i class="fa-solid fa-calculator fa-3x"></i><br><br>Pendiente de análisis. Sube documentos para activar.</div>`;
-        return;
+    const econ = folio.Economico || {};
+    const docs = JSON.parse(getVal(folio, ['Adjunto']) || '{}');
+
+    // Lógica avanzada de FOB: Factura o Proforma
+    const fobVal = econ['FOB Fac. Comercial'] || econ['FOB Proforma'] || '-';
+    const hasFob = fobVal !== '-';
+
+    // Pagos
+    const sena = parseFloat(econ['Monto Señado'] || 0);
+    const balance = parseFloat(econ['Monto Balance'] || 0);
+    const pagado = sena + balance;
+
+    // Saldo
+    let saldo = "-";
+    if (hasFob) {
+        const totalFob = parseFloat(fobVal.toString().replace(/[^0-9.]/g, '')) || 0;
+        saldo = (totalFob - pagado).toFixed(2);
     }
+
     const rows = [
-        { l: 'FOB Factura', v: econ['FOB Fac. Comercial'], i: 'fa-tag' },
-        { l: 'Monto Señado', v: econ['Monto Señado'], i: 'fa-clock-rotate-left' },
-        { l: 'Monto Balance', v: econ['Monto Balance'], i: 'fa-wallet' },
+        { l: 'FOB (Factura/Proforma)', v: fobVal, i: 'fa-tag' },
+        { l: 'Swift Seña', v: econ['Monto Señado'], i: 'fa-clock-rotate-left' },
+        { l: 'Swift Balance', v: econ['Monto Balance'], i: 'fa-receipt' },
+        { l: 'Total Pagado', v: pagado > 0 ? pagado.toFixed(2) : '-', i: 'fa-wallet', highlight: true },
+        { l: 'Saldo a Pagar', v: saldo, i: 'fa-hand-holding-dollar', alert: saldo > 0 },
         { l: 'Flete Internacional', v: econ['Flete Int.'], i: 'fa-ship' },
-        { l: 'Despacho', v: econ['Despacho'], i: 'fa-building-columns', s: econ['Moneda Despacho'] },
-        { l: 'Flete Nacional', v: econ['Flete Nacional'], i: 'fa-truck-fast', s: econ['Moneda Flete Nac.'] }
+        { l: 'Despacho', v: econ['Despacho'], i: 'fa-building-columns' }
     ];
+
     let grid = '<div style="display:grid; grid-template-columns: 1fr 1fr; gap:15px;">';
-    rows.forEach(r => { if(r.v && r.v !== '-') grid += `<div class="econ-card"><i class="fa-solid ${r.i}"></i><div><label>${r.l}</label><div>${r.v} ${r.s || 'USD'}</div></div></div>`; });
+    rows.forEach(r => { 
+        if(r.v && r.v !== '-') {
+            const style = r.highlight ? 'background: var(--primary-light); color: white;' : (r.alert ? 'background: #fff3cd; color: #856404;' : '');
+            grid += `<div class="econ-card" style="${style}"><i class="fa-solid ${r.i}"></i><div><label>${r.l}</label><div>${r.v} USD</div></div></div>`;
+        }
+    });
     grid += '</div>';
-    container.innerHTML = `${grid}<div class="total-banner"><div><label>COSTO TOTAL ESTIMADO (C.F.O)</label></div><div class="total-value">USD ${econ['Costo Total USD'] || '0.00'}</div></div>`;
+
+    container.innerHTML = `
+        ${grid}
+        <div class="total-banner">
+            <div><label>COSTO TOTAL ESTIMADO (C.F.O)</label></div>
+            <div class="total-value">USD ${econ['Costo Total USD'] || '0.00'}</div>
+        </div>
+        <p style="font-size: 0.8rem; margin-top: 10px; color: var(--text-muted);"><i class="fa-solid fa-info-circle"></i> El saldo se calcula restando la Seña y el Balance al valor FOB de la Factura o Proforma.</p>
+    `;
 };
 
 const renderDocsTab = (folioId, adjString) => {
@@ -262,14 +312,14 @@ const renderDocsTab = (folioId, adjString) => {
     
     // Lista de documentos que buscamos
     const DOC_TYPES = [
+        { name: "Proforma Invoice", icon: "fa-file-invoice" },
         { name: "Factura comercial", icon: "fa-file-invoice" },
         { name: "Comprobante de seña", icon: "fa-receipt" },
         { name: "Comprobante de balance", icon: "fa-receipt" },
         { name: "Factura de flete internacional", icon: "fa-ship" },
         { name: "DUA", icon: "fa-file-shield" },
         { name: "Packing list", icon: "fa-list-check" },
-        { name: "BL", icon: "fa-anchor" },
-        { name: "Quotation request", icon: "fa-file-signature" }
+        { name: "BL", icon: "fa-anchor" }
     ];
 
     DOC_TYPES.forEach(doc => {
