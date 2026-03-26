@@ -1,4 +1,5 @@
-let SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxASsSOlKEpgjtiC2CG9gviznG88tCGwPkbFhoCsDrpxMy7VW2A-1ThDHzagfDyrUJI/exec';
+let SCRIPT_URL = 'https://script.google.com/macros/s/AKfycby42afzCX_sQBxYYPSrVDCfBK8KAFOKWcRUZHBM0fDGQGoWSkwxBKnvSk67-PatY74J/exec';
+
 let folios = [];
 let allData = []; // Backup for searching
 let currentFilter = 'all';
