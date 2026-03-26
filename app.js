@@ -279,12 +279,37 @@ window.uploadToDrive = async (folioId, docType, input) => {
     const reader = new FileReader();
     reader.onload = async () => {
         try {
-            const payload = { action: 'uploadFile', folioId: folioId.toString(), docType, filename: file.name, mimeType: file.type, fileBase64: reader.result.split(',')[1] };
-            const res = await fetch(SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload), redirect: 'follow' });
+            const payload = { 
+                action: 'uploadFile', 
+                folioId: folioId.toString(), 
+                docType, 
+                filename: file.name, 
+                mimeType: file.type, 
+                fileBase64: reader.result.split(',')[1] 
+            };
+            console.log("Enviando payload a:", SCRIPT_URL);
+            const res = await fetch(SCRIPT_URL, { 
+                method: 'POST', 
+                body: JSON.stringify(payload), 
+                redirect: 'follow',
+                mode: 'cors' 
+            });
+            
+            if (!res.ok) throw new Error(`HTTP Error: ${res.status}`);
             const data = await res.json();
             overlay.remove();
-            if(data.success) { alert("¡Éxito!"); loadData(); closeAllModals(); } else throw new Error(data.error);
-        } catch(e) { overlay.remove(); alert("Error: " + e.message); }
+            if(data.success) { 
+                alert("¡Documento procesado con éxito!"); 
+                loadData(); 
+                closeAllModals(); 
+            } else {
+                throw new Error(data.error || "Error en el servidor");
+            }
+        } catch(e) { 
+            overlay.remove(); 
+            console.error("Upload Error Details:", e);
+            alert("Error al subir archivo: " + e.message + "\n\nTip: Asegúrate de que el script en Google esté publicado para 'Cualquiera' (Anyone)."); 
+        }
     };
     reader.readAsDataURL(file);
 };
@@ -335,10 +360,27 @@ document.getElementById('saveNewFolioBtn').onclick = async (e) => {
     btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Guardando...';
     const payload = { id: (allData.length + 100).toString(), supplier: document.getElementById('inputSupplier').value, description: document.getElementById('inputDescription').value, purchaseDate: document.getElementById('inputPurchaseDate').value, status: "En Producción" };
     try {
-        const res = await fetch(SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload), redirect: 'follow' });
+        const res = await fetch(SCRIPT_URL, { 
+            method: 'POST', 
+            body: JSON.stringify(payload), 
+            redirect: 'follow',
+            mode: 'cors'
+        });
         const data = await res.json();
-        if(data.success) { document.getElementById('newFolioForm').reset(); loadData(); closeAllModals(); } else alert("Error: " + data.error);
-    } catch(e) { alert("Error."); } finally { btn.disabled = false; btn.innerHTML = oldHtml; }
+        if(data.success) { 
+            document.getElementById('newFolioForm').reset(); 
+            loadData(); 
+            closeAllModals(); 
+        } else {
+            alert("Error: " + data.error);
+        }
+    } catch(e) { 
+        console.error("Save Folio Error:", e);
+        alert("Error al crear folio: " + e.message); 
+    } finally { 
+        btn.disabled = false; 
+        btn.innerHTML = oldHtml; 
+    }
 };
 
 document.addEventListener('DOMContentLoaded', loadData);
