@@ -40,8 +40,7 @@
                     <input type="text" id="searchInput" placeholder="Buscar folios, proveedores, SKUs..." oninput="handleSearch(this.value)">
                 </div>
                 <div class="user-profile">
-                    <button class="btn-secondary" id="syncDataBtn" onclick="loadData()"><i class="fa-solid fa-sync"></i> Actualizar datos</button>
-                    <button class="btn-primary" id="newFolioBtn"><i class="fa-solid fa-plus"></i> Nuevo Folio</button>
+                    <button class="btn-refresh" id="refreshDataBtn" onclick="loadData()"><i class="fa-solid fa-sync"></i> Actualizar</button>
                     <div class="avatar">
                         <img src="https://ui-avatars.com/api/?name=Import+User&background=0D8ABC&color=fff" alt="User">
                     </div>
@@ -51,74 +50,78 @@
             <!-- Dashboard Content -->
             <div class="dashboard-content">
                 <div class="header-title">
-                    <h1>Resumen de Operaciones</h1>
-                    <p>Monitoreo en tiempo real de importaciones activas.</p>
+                    <h1>Sistena de Gestión Operativa (ERP)</h1>
+                    <p>Monitoreo inteligente de importaciones y costos consolidados.</p>
                 </div>
 
-                <!-- Stats Cards -->
+                <!-- Stats Cards - Enterprise Edition -->
                 <div class="stats-grid">
-                    <div class="stat-card" style="cursor: pointer;">
-                        <div class="stat-icon" style="background: rgba(59, 130, 246, 0.2); color: #3b82f6;">
-                            <i class="fa-solid fa-gears"></i>
+                    <div class="stat-card" onclick="filterByStatus('En Producción')">
+                        <div class="stat-icon" style="background-color: rgba(59, 130, 246, 0.1); color: var(--status-produccion);">
+                            <i class="fa-solid fa-industry"></i>
                         </div>
                         <div class="stat-info">
-                            <h3>En Producción</h3>
-                            <h2 id="stat-produccion">0</h2>
+                            <h3>Producción</h3>
+                            <h2 id="count-produccion">0</h2>
+                            <span class="stat-value" id="val-produccion">USD 0.00</span>
                         </div>
                     </div>
-                    <div class="stat-card" style="cursor: pointer;">
-                        <div class="stat-icon" style="background: rgba(245, 158, 11, 0.2); color: #f59e0b;">
+                    <div class="stat-card" onclick="filterByStatus('En Tránsito')">
+                        <div class="stat-icon" style="background-color: rgba(245, 158, 11, 0.1); color: var(--status-transito);">
                             <i class="fa-solid fa-ship"></i>
                         </div>
                         <div class="stat-info">
                             <h3>En Tránsito</h3>
-                            <h2 id="stat-transito">0</h2>
+                            <h2 id="count-transito">0</h2>
+                            <span class="stat-value" id="val-transito">USD 0.00</span>
                         </div>
                     </div>
-                    <div class="stat-card" style="cursor: pointer;">
-                        <div class="stat-icon" style="background: rgba(239, 68, 68, 0.2); color: #ef4444;">
-                            <i class="fa-solid fa-building-flag"></i>
+                    <div class="stat-card" onclick="filterByStatus('Aduana')">
+                        <div class="stat-icon" style="background-color: rgba(239, 68, 68, 0.1); color: var(--status-aduana);">
+                            <i class="fa-solid fa-building-shield"></i>
                         </div>
                         <div class="stat-info">
-                            <h3>En Aduana</h3>
-                            <h2 id="stat-aduana">0</h2>
+                            <h3>Aduana</h3>
+                            <h2 id="count-aduana">0</h2>
+                            <span class="stat-value" id="val-aduana">USD 0.00</span>
                         </div>
                     </div>
-                    <div class="stat-card" style="cursor: pointer;">
-                        <div class="stat-icon" style="background: rgba(16, 185, 129, 0.2); color: #10b981;">
+                    <div class="stat-card" onclick="filterByStatus('Depósito')">
+                        <div class="stat-icon" style="background-color: rgba(16, 185, 129, 0.1); color: var(--status-deposito);">
                             <i class="fa-solid fa-warehouse"></i>
                         </div>
                         <div class="stat-info">
                             <h3>En Depósito</h3>
-                            <h2 id="stat-deposito">0</h2>
+                            <h2 id="count-deposito">0</h2>
+                            <span class="stat-value" id="val-deposito">USD 0.00</span>
                         </div>
                     </div>
                 </div>
 
-                <!-- Active Folios List -->
+                <!-- Folios Active Table -->
                 <div class="folios-section">
                     <div class="section-header">
                         <h2>Folios Activos</h2>
-                        <div class="view-toggles">
-                            <button class="active"><i class="fa-solid fa-list"></i></button>
-                            <button><i class="fa-solid fa-border-all"></i></button>
+                        <div class="table-actions">
+                            <span class="filter-tag" id="activeFilterTag" style="display:none">Mostrando: Producción <i class="fa-solid fa-xmark" onclick="clearFilter()"></i></span>
                         </div>
                     </div>
-                    
                     <div class="table-container">
                         <table class="folios-table">
                             <thead>
                                 <tr>
-                                    <th>Folio</th>
-                                    <th>Proveedor</th>
-                                    <th>Mercadería</th>
-                                    <th>Estado</th>
-                                    <th>ETA Previsto</th>
-                                    <th>Acciones</th>
+                                    <th onclick="sortTable('Folio')">Folio <i class="fa-solid fa-sort"></i></th>
+                                    <th onclick="sortTable('Proveedor')">Proveedor <i class="fa-solid fa-sort"></i></th>
+                                    <th onclick="sortTable('Mercaderia')">Mercadería <i class="fa-solid fa-sort"></i></th>
+                                    <th onclick="sortTable('Estado')">Estado <i class="fa-solid fa-sort"></i></th>
+                                    <th onclick="sortTable('Fecha Compra')">F. Compra <i class="fa-solid fa-sort"></i></th>
+                                    <th onclick="sortTable('ETA')">ETA <i class="fa-solid fa-sort"></i></th>
+                                    <th>Costo</th>
+                                    <th>Estatus</th>
                                 </tr>
                             </thead>
                             <tbody id="foliosTableBody">
-                                <!-- Data injected via JS -->
+                                <!-- Datos cargados dinámicamente -->
                             </tbody>
                         </table>
                     </div>

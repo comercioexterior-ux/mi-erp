@@ -1,466 +1,391 @@
-let SCRIPT_URL = 'https://script.google.com/macros/s/AKfycby42afzCX_sQBxYYPSrVDCfBK8KAFOKWcRUZHBM0fDGQGoWSkwxBKnvSk67-PatY74J/exec';
-
+let SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzwPbytl6GAPaA3J_XxX4dpfKBx8BAXI1oEldHYRSENZc0OXrmFllii2V4wTZ-VhHLH/exec';
 let folios = [];
-let allData = []; // Backup for searching
+let allData = [];
 let currentFilter = 'all';
-let currentTab = 'import';
+let sortConfig = { key: 'Folio', direction: 'asc' };
+let activeFolio = null;
 
-// --- UTILIDADES ---
-const getVal = (obj, keywords) => {
-    if (!obj) return '';
-    for (let k of keywords) {
-        const foundKey = Object.keys(obj).find(key => key.toLowerCase().trim() === k.toLowerCase().trim());
-        if (foundKey && obj[foundKey] && obj[foundKey].toString().trim() !== '') return obj[foundKey];
-    }
-    return '';
-};
-
-const getStatusCode = (statusText) => {
-    let txt = (statusText || '').toLowerCase().trim().replace(/[^a-z0-9]/g, '');
-    if (txt.includes('producci') || txt.includes('fabrica') || txt === 'confirmado' || txt.includes('produccion')) return 'produccion';
-    if (txt.includes('transito') || txt.includes('embarcado') || txt.includes('viaje') || txt.includes('nave')) return 'transito';
-    if (txt.includes('aduana') || txt.includes('puerto') || txt.includes('despacho')) return 'aduana';
-    if (txt.includes('deposito') || txt.includes('aurora') || txt.includes('recibido') || txt.includes('stock')) return 'deposito';
-    return 'desconocido'; 
-};
-
-const getStatusBadgeHtml = (status) => {
-    const code = getStatusCode(status);
-    let icon = '';
-    switch(code) {
-        case 'produccion': icon = 'fa-gears'; break;
-        case 'transito': icon = 'fa-ship'; break;
-        case 'aduana': icon = 'fa-building-flag'; break;
-        case 'deposito': icon = 'fa-warehouse'; break;
-    }
-    return `<span class="status-badge status-${code}"><i class="fa-solid ${icon}"></i> ${status || 'Sin Estado'}</span>`;
-};
-
-// --- NAVEGACIÓN ---
-window.switchView = (tab) => {
-    currentTab = tab;
-    currentFilter = 'all';
-    
-    // UI Updates
-    document.querySelectorAll('.sidebar-nav li').forEach(li => li.classList.remove('active'));
-    const activeLi = document.getElementById('nav-' + tab) || document.getElementById('nav-dashboard');
-    if(activeLi) activeLi.classList.add('active');
-
-    // Show/Hide Dashboard Stats only for 'import'
-    const statsGrid = document.querySelector('.stats-grid');
-    const headerTitle = document.querySelector('.header-title h1');
-    const headerP = document.querySelector('.header-title p');
-    
-    if (tab === 'import') {
-        if(statsGrid) statsGrid.style.display = 'grid';
-        headerTitle.innerText = "Resumen de Operaciones";
-        headerP.innerText = "Monitoreo en tiempo real de importaciones activas.";
-    } else {
-        if(statsGrid) statsGrid.style.display = 'none';
-        headerTitle.innerText = tab.charAt(0).toUpperCase() + tab.slice(1);
-        headerP.innerText = `Visualización de datos avanzados de ${tab}.`;
-    }
-
+// --- INICIALIZACIÓN ---
+document.addEventListener('DOMContentLoaded', () => {
     loadData();
-};
+    setupModalEvents();
+});
 
-// --- BUSCADOR ---
-window.handleSearch = (query) => {
-    const q = query.toLowerCase().trim();
-    if (!q) {
-        folios = [...allData];
-    } else {
-        folios = allData.filter(item => {
-            return Object.values(item).some(val => 
-                val && val.toString().toLowerCase().includes(q)
-            );
-        });
+function setupModalEvents() {
+    const modal = document.getElementById('folioModal');
+    const closeBtns = [document.getElementById('closeModal'), document.getElementById('closeModalBtn')];
+    closeBtns.forEach(btn => btn.onclick = () => modal.classList.remove('active'));
+    window.onclick = (e) => { if (e.target === modal) modal.classList.remove('active'); };
+}
+
+// --- CARGA DE DATOS ---
+async function loadData() {
+    const btn = document.getElementById('refreshDataBtn');
+    btn.innerHTML = '<i class="fa-solid fa-sync fa-spin"></i> Sincronizando...';
+    btn.disabled = true;
+
+    try {
+        const response = await fetch(SCRIPT_URL);
+        const data = await response.json();
+        if (data.error) throw new Error(data.error);
+
+        allData = data;
+        updateDashboard();
+        applyCurrentState();
+    } catch (err) {
+        console.error("Error al cargar datos:", err);
+        alert("Error de conexión con el ERP. Verifique los permisos del script.");
+    } finally {
+        btn.innerHTML = '<i class="fa-solid fa-sync"></i> Actualizar';
+        btn.disabled = false;
     }
-    renderTable();
-};
+}
 
-// --- MOTOR DE DASHBOARD ---
-const filterByStatus = (status) => {
-    currentFilter = (currentFilter === status) ? 'all' : status;
-    document.querySelectorAll('.stat-card').forEach(card => card.style.border = '1px solid var(--border)');
-    if (currentFilter !== 'all') {
-        const activeCard = Array.from(document.querySelectorAll('.stat-card')).find(c => c.querySelector('h3').innerText.toLowerCase().includes(currentFilter.substring(0,4)));
-        if(activeCard) activeCard.style.border = '2px solid var(--primary)';
-    }
-    renderTable();
-};
+function updateDashboard() {
+    const stats = {
+        'En Producción': { count: 0, val: 0 },
+        'En Tránsito': { count: 0, val: 0 },
+        'Aduana': { count: 0, val: 0 },
+        'Depósito': { count: 0, val: 0 }
+    };
 
-const updateDashboardStats = () => {
-    if (currentTab !== 'import') return;
-    let stats = { produccion: 0, transito: 0, adua: 0, depo: 0 };
     allData.forEach(f => {
-        const statusVal = getVal(f, ['Estado Carga', 'Estado', 'Status']);
-        const s = getStatusCode(statusVal);
-        if(s === 'produccion') stats.produccion++;
-        if(s === 'transito') stats.transito++;
-        if(s === 'aduana') stats.adua++;
-        if(s === 'deposito') stats.depo++;
+        const status = f.Estado || 'En Producción';
+        const fob = parseFloat(f.Economico?.['FOB Factura Comercial']) || 0;
+        
+        if (stats[status]) {
+            stats[status].count++;
+            stats[status].val += fob;
+        }
     });
-    
-    document.getElementById('stat-produccion').innerText = stats.produccion;
-    document.getElementById('stat-transito').innerText = stats.transito;
-    document.getElementById('stat-aduana').innerText = stats.adua;
-    document.getElementById('stat-deposito').innerText = stats.depo;
 
-    const cards = document.querySelectorAll('.stat-card');
-    cards[0].onclick = () => filterByStatus('produccion');
-    cards[1].onclick = () => filterByStatus('transito');
-    cards[2].onclick = () => filterByStatus('aduana');
-    cards[3].onclick = () => filterByStatus('deposito');
-};
+    Object.keys(stats).forEach(key => {
+        const baseId = key.toLowerCase().replace('en ', '').replace('ó', 'o');
+        const countEl = document.getElementById(`count-${baseId}`);
+        const valEl = document.getElementById(`val-${baseId}`);
+        if (countEl) countEl.innerText = stats[key].count;
+        if (valEl) valEl.innerText = `USD ${stats[key].val.toLocaleString('es-AR', {minimumFractionDigits: 2})}`;
+    });
+}
 
-// --- RENDERIZADO DE TABLA ---
-const renderTable = () => {
-    const tbody = document.getElementById('foliosTableBody');
-    const thead = document.querySelector('.folios-table thead tr');
-    if(!tbody || !thead) return;
+// --- FILTROS Y BÚSQUEDA ---
+function filterByStatus(status) {
+    currentFilter = status;
+    const tag = document.getElementById('activeFilterTag');
+    tag.style.display = 'inline-flex';
+    tag.innerHTML = `Mostrando: ${status} <i class="fa-solid fa-xmark" onclick="clearFilter()"></i>`;
+    applyCurrentState();
+}
 
-    tbody.innerHTML = '';
-    
-    // Header dinámico según el Tab
-    if (currentTab === 'import') {
-        thead.innerHTML = `
-            <th>Folio</th>
-            <th>Proveedor</th>
-            <th>Mercadería</th>
-            <th>Estado</th>
-            <th title="Carga">Carga</th>
-            <th title="Volumen">Vol</th>
-            <th title="Contenedores">Cont.</th>
-            <th title="Bultos">Bultos</th>
-            <th>ETA</th>
-            <th>Acciones</th>
-        `;
-    } else {
-        // Para otros tabs, mostramos las primeras 5 columnas encontradas
-        if (allData.length > 0) {
-            const keys = Object.keys(allData[0]).filter(k => k !== 'Economico' && k !== 'Adjunto').slice(0, 5);
-            thead.innerHTML = keys.map(k => `<th>${k}</th>`).join('') + `<th>Acciones</th>`;
-        }
+function clearFilter() {
+    currentFilter = 'all';
+    document.getElementById('activeFilterTag').style.display = 'none';
+    applyCurrentState();
+}
+
+function handleSearch(val) {
+    applyCurrentState(val.toLowerCase());
+}
+
+function applyCurrentState(searchTerm = '') {
+    let filtered = [...allData];
+
+    if (currentFilter !== 'all') {
+        filtered = filtered.filter(f => f.Estado === currentFilter);
     }
 
-    let displayItems = folios;
-    if (currentTab === 'import' && currentFilter !== 'all') {
-        displayItems = folios.filter(f => getStatusCode(getVal(f, ['Estado Carga', 'Estado'])) === currentFilter);
+    if (searchTerm) {
+        filtered = filtered.filter(f => 
+            f.Folio.toLowerCase().includes(searchTerm) || 
+            f.Proveedor.toLowerCase().includes(searchTerm) || 
+            f.Mercaderia.toLowerCase().includes(searchTerm)
+        );
     }
 
-    if (displayItems.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="15" style="text-align:center; padding: 40px;">No se encontraron resultados.</td></tr>`;
-        return;
-    }
+    // Aplicar Ordenamiento
+    filtered.sort((a, b) => {
+        let valA = a[sortConfig.key] || '';
+        let valB = b[sortConfig.key] || '';
 
-    [...displayItems].reverse().forEach((item) => {
-        const originalIndex = allData.indexOf(item);
-        const tr = document.createElement('tr');
-        tr.style.cursor = 'pointer';
-        
-        if (currentTab === 'import') {
-            tr.innerHTML = `
-                <td><strong>${getVal(item, ['Impo', 'Folio', 'Id']) || 'S/N'}</strong></td>
-                <td>${getVal(item, ['Proveedor']) || '-'}</td>
-                <td>${(getVal(item, ['Mercaderia', 'Articulo']) || '-').substring(0, 25)}...</td>
-                <td>${getStatusBadgeHtml(getVal(item, ['Estado Carga', 'Estado', 'Status']))}</td>
-                <td>${getVal(item, ['Carga']) || '-'}</td>
-                <td>${getVal(item, ['Volumen']) || '-'}</td>
-                <td>${getVal(item, ['Contenedores']) || '-'}</td>
-                <td>${getVal(item, ['Bultos']) || '-'}</td>
-                <td>${getVal(item, ['ETA', 'ETA previsto']) || '-'}</td>
-                <td><button class="action-btn" onclick="openModal(${originalIndex}, event)"><i class="fa-solid fa-arrow-right"></i></button></td>
-            `;
+        // Detectar si es fecha o número
+        if (sortConfig.key.includes('Fecha') || sortConfig.key === 'ETA') {
+            valA = new Date(valA.split('/').reverse().join('-')) || 0;
+            valB = new Date(valB.split('/').reverse().join('-')) || 0;
+        } else if (!isNaN(parseFloat(valA)) && isFinite(valA)) {
+            valA = parseFloat(valA);
+            valB = parseFloat(valB);
         } else {
-            const keys = Object.keys(item).filter(k => k !== 'Economico' && k !== 'Adjunto').slice(0, 5);
-            tr.innerHTML = keys.map(k => `<td>${item[k] || '-'}</td>`).join('') + 
-                           `<td><button class="action-btn" onclick="openGenericModal(${originalIndex}, event)"><i class="fa-solid fa-eye"></i></button></td>`;
+            valA = valA.toString().toLowerCase();
+            valB = valB.toString().toLowerCase();
         }
+
+        if (valA < valB) return sortConfig.direction === 'asc' ? -1 : 1;
+        if (valA > valB) return sortConfig.direction === 'asc' ? 1 : -1;
+        return 0;
+    });
+
+    renderTable(filtered);
+}
+
+// --- TABLA ---
+function sortTable(key) {
+    if (sortConfig.key === key) {
+        sortConfig.direction = sortConfig.direction === 'asc' ? 'desc' : 'asc';
+    } else {
+        sortConfig.key = key;
+        sortConfig.direction = 'asc';
+    }
+    applyCurrentState();
+}
+
+function renderTable(data) {
+    const tbody = document.getElementById('foliosTableBody');
+    tbody.innerHTML = '';
+
+    data.forEach(f => {
+        const fobFormatted = f.Economico?.['FOB Factura Comercial'] ? 
+            `USD ${parseFloat(f.Economico['FOB Factura Comercial']).toLocaleString()}` : '-';
         
-        tr.onclick = (e) => {
-            if (currentTab === 'import') openModal(originalIndex);
-            else openGenericModal(originalIndex);
-        };
+        const completitudClass = (f.Economico?.['Estado Completitud'] || 'Incompleta').toLowerCase().replace(' ', '-');
+
+        const tr = document.createElement('tr');
+        tr.onclick = () => openFolioModal(f.Folio);
+        tr.innerHTML = `
+            <td><strong>#${f.Folio}</strong></td>
+            <td>${f.Proveedor}</td>
+            <td>${f.Mercaderia}</td>
+            <td><span class="status-badge status-${f.Estado?.toLowerCase().replace(' ', '-') || 'produccion'}">${f.Estado}</span></td>
+            <td>${f['Fecha Compra'] || '-'}</td>
+            <td>${f.ETA || '-'}</td>
+            <td><span class="text-primary font-bold">${fobFormatted}</span></td>
+            <td><span class="badge-${completitudClass}">${f.Economico?.['Estado Completitud'] || 'Incompleta'}</span></td>
+        `;
         tbody.appendChild(tr);
     });
-};
+}
 
-const loadData = async () => {
-    const tbody = document.getElementById('foliosTableBody');
-    const syncBtn = document.getElementById('syncDataBtn');
-    if(syncBtn) syncBtn.innerHTML = '<i class="fa-solid fa-sync fa-spin"></i> Actualizando...';
+// --- MODAL ---
+function openFolioModal(folioId) {
+    activeFolio = allData.find(f => f.Folio.toString() === folioId.toString());
+    if (!activeFolio) return;
 
-    if(tbody) tbody.innerHTML = '<tr><td colspan="15" style="text-align:center; padding: 40px;"><i class="fa-solid fa-sync fa-spin"></i> Cargando datos...</td></tr>';
+    document.getElementById('modalFolioId').innerText = `Folio #${activeFolio.Folio}`;
+    document.getElementById('modalStatus').innerText = activeFolio.Estado;
+    document.getElementById('modalStatus').className = `badge status-${activeFolio.Estado?.toLowerCase().replace(' ', '-')}`;
     
-    try {
-        const url = `${SCRIPT_URL}?tab=${currentTab}`;
-        const res = await fetch(url, { method: 'GET', redirect: 'follow' });
-        const data = await res.json();
-        
-        if (data.error) throw new Error(data.error);
-        
-        allData = data || [];
-        folios = [...allData];
-
-        renderTable();
-        if (currentTab === 'import') updateDashboardStats();
-
-    } catch (e) {
-        console.error("Connection Error:", e);
-        if(tbody) tbody.innerHTML = `<tr><td colspan="15" style="text-align:center; color:red; padding:20px;">Error: ${e.message} <button onclick="loadData()">Reintentar</button></td></tr>`;
-    } finally {
-        if(syncBtn) syncBtn.innerHTML = '<i class="fa-solid fa-sync"></i> Actualizar datos';
-    }
-};
-
-// --- MODALES ---
-window.openModal = (index, event) => {
-    if(event) event.stopPropagation();
-    const folio = allData[index];
-    if(!folio) return;
-
-    document.getElementById('modalFolioId').innerText = getVal(folio, ['Impo', 'Folio', 'Id']) || 'S/N';
-    document.getElementById('modalStatusBadge').innerHTML = getStatusBadgeHtml(getVal(folio, ['Estado Carga', 'Estado', 'Status']));
-
-    const dynamicContainer = document.getElementById('modalDynamicData');
-    const GROUPS = [
-        { title: 'Pedido y Producto', icon: 'fa-box', keys: ['Impo', 'Proveedor', 'Mercaderia'] },
-        { title: 'Logística', icon: 'fa-truck', keys: ['Origen', 'Incoterm', 'ETD', 'ETA', 'Carga', 'Volumen', 'Contenedores', 'Bultos'] },
-        { title: 'Gestión', icon: 'fa-clipboard-list', keys: ['Estado Carga', 'Confirmacion Pedido', 'Zureo', 'LP'] }
-    ];
-    
-    let html = '';
-    GROUPS.forEach(g => {
-        let cells = '';
-        g.keys.forEach(k => {
-            const val = getVal(folio, [k, k.toLowerCase()]);
-            if(val) cells += `<div class="info-cell"><label>${k}</label><div>${val}</div></div>`;
-        });
-        if(cells) html += `<div class="group-header"><i class="fa-solid ${g.icon}"></i> ${g.title}</div>${cells}`;
-    });
-    dynamicContainer.innerHTML = html;
-
-    renderEconomicTab(folio);
-    renderDocsTab(getVal(folio, ['Impo']), getVal(folio, ['Adjunto', 'Documentos']));
-    updateTracker(getStatusCode(getVal(folio, ['Estado Carga', 'Estado'])));
-    switchTab('tab-general');
+    switchModalTab('general');
     document.getElementById('folioModal').classList.add('active');
-};
+}
 
-window.openGenericModal = (index, event) => {
-    if(event) event.stopPropagation();
-    const item = allData[index];
-    alert(JSON.stringify(item, null, 2)); // Placeholder para vista genérica
-};
-
-const renderEconomicTab = (folio) => {
-    const container = document.getElementById('tab-economico');
-    if(!container) return;
-    const econ = folio.Economico || {};
-    const docs = JSON.parse(getVal(folio, ['Adjunto']) || '{}');
-
-    // Lógica avanzada de FOB: Factura o Proforma
-    const fobVal = econ['FOB Fac. Comercial'] || econ['FOB Proforma'] || '-';
-    const hasFob = fobVal !== '-';
-
-    // Pagos
-    const sena = parseFloat(econ['Monto Señado'] || 0);
-    const balance = parseFloat(econ['Monto Balance'] || 0);
-    const pagado = sena + balance;
-
-    // Saldo
-    let saldo = "-";
-    if (hasFob) {
-        const totalFob = parseFloat(fobVal.toString().replace(/[^0-9.]/g, '')) || 0;
-        saldo = (totalFob - pagado).toFixed(2);
-    }
-
-    const rows = [
-        { l: 'FOB (Factura/Proforma)', v: fobVal, i: 'fa-tag' },
-        { l: 'Swift Seña', v: econ['Monto Señado'], i: 'fa-clock-rotate-left' },
-        { l: 'Swift Balance', v: econ['Monto Balance'], i: 'fa-receipt' },
-        { l: 'Total Pagado', v: pagado > 0 ? pagado.toFixed(2) : '-', i: 'fa-wallet', highlight: true },
-        { l: 'Saldo a Pagar', v: saldo, i: 'fa-hand-holding-dollar', alert: saldo > 0 },
-        { l: 'Flete Internacional', v: econ['Flete Int.'], i: 'fa-ship' },
-        { l: 'Despacho', v: econ['Despacho'], i: 'fa-building-columns' }
-    ];
-
-    let grid = '<div style="display:grid; grid-template-columns: 1fr 1fr; gap:15px;">';
-    rows.forEach(r => { 
-        if(r.v && r.v !== '-') {
-            const style = r.highlight ? 'background: var(--primary-light); color: white;' : (r.alert ? 'background: #fff3cd; color: #856404;' : '');
-            grid += `<div class="econ-card" style="${style}"><i class="fa-solid ${r.i}"></i><div><label>${r.l}</label><div>${r.v} USD</div></div></div>`;
-        }
-    });
-    grid += '</div>';
-
-    container.innerHTML = `
-        ${grid}
-        <div class="total-banner">
-            <div><label>COSTO TOTAL ESTIMADO (C.F.O)</label></div>
-            <div class="total-value">USD ${econ['Costo Total USD'] || '0.00'}</div>
-        </div>
-        <p style="font-size: 0.8rem; margin-top: 10px; color: var(--text-muted);"><i class="fa-solid fa-info-circle"></i> El saldo se calcula restando la Seña y el Balance al valor FOB de la Factura o Proforma.</p>
-    `;
-};
-
-const renderDocsTab = (folioId, adjString) => {
-    const container = document.getElementById('docsGridContainer');
-    container.innerHTML = '';
-    let docs = {};
-    try { docs = JSON.parse(adjString || '{}'); } catch(e) {}
+function switchModalTab(tabName) {
+    const btns = document.querySelectorAll('.tab-btn');
+    btns.forEach(btn => btn.classList.toggle('active', btn.innerText.toLowerCase().includes(tabName.slice(0,3))));
     
-    // Lista de documentos que buscamos
-    const DOC_TYPES = [
-        { name: "Proforma Invoice", icon: "fa-file-invoice" },
-        { name: "Factura comercial", icon: "fa-file-invoice" },
-        { name: "Comprobante de seña", icon: "fa-receipt" },
-        { name: "Comprobante de balance", icon: "fa-receipt" },
-        { name: "Factura de flete internacional", icon: "fa-ship" },
-        { name: "DUA", icon: "fa-file-shield" },
-        { name: "Packing list", icon: "fa-list-check" },
-        { name: "BL", icon: "fa-anchor" }
+    const body = document.getElementById('modalBody');
+    body.innerHTML = '<div class="loading">Cargando...</div>';
+
+    setTimeout(() => {
+        if (tabName === 'general') renderGeneralTab();
+        else if (tabName === 'tracking') renderTrackingTab();
+        else if (tabName === 'docs') renderDocsTab();
+        else if (tabName === 'economic') renderEconomicTab();
+    }, 100);
+}
+
+function renderGeneralTab() {
+    const body = document.getElementById('modalBody');
+    body.innerHTML = `
+        <div class="folio-details-grid">
+            <div class="info-cell"><label>Proveedor</label><div>${activeFolio.Proveedor}</div></div>
+            <div class="info-cell"><label>Mercadería</label><div>${activeFolio.Mercaderia}</div></div>
+            <div class="info-cell"><label>Incoterm</label><div>${activeFolio.Incoterm || '-'}</div></div>
+            <div class="info-cell"><label>Fecha Compra</label><div>${activeFolio['Fecha Compra']}</div></div>
+            <div class="info-cell"><label>Carga</label><div>${activeFolio.Carga || '-'}</div></div>
+            <div class="info-cell"><label>Volumen</label><div>${activeFolio.Volumen || '-'}</div></div>
+            <div class="info-cell full-width"><label>Observaciones Operativas</label><div>${activeFolio.Observaciones || 'Sin observaciones.'}</div></div>
+        </div>
+    `;
+}
+
+function renderTrackingTab() {
+    const body = document.getElementById('modalBody');
+    const steps = [
+        { name: 'Producción', icon: 'fa-industry', status: 'En Producción' },
+        { name: 'Tránsito', icon: 'fa-ship', status: 'En Tránsito' },
+        { name: 'Aduana', icon: 'fa-building-shield', status: 'Aduana' },
+        { name: 'Depósito', icon: 'fa-warehouse', status: 'Depósito' }
     ];
 
-    DOC_TYPES.forEach(doc => {
-        const file = docs[doc.name];
-        const cleanId = doc.name.replace(/\s/g, '');
-        const isDrive = file && file.isDrive;
+    let currentIdx = steps.findIndex(s => s.status === activeFolio.Estado);
+    if (currentIdx === -1) currentIdx = 0;
 
-        container.innerHTML += `
-            <div class="doc-box">
-                <h4><i class="fa-solid ${doc.icon}"></i> ${doc.name}</h4>
-                ${file ? `
-                    <div class="doc-active">
-                        <i class="fa-solid ${isDrive ? 'fa-cloud' : 'fa-file-pdf'}"></i> 
-                        <span>${isDrive ? 'Detectado en Drive' : 'Cargado'}</span>
-                    </div>
-                    <div class="doc-actions">
-                        <a href="${file.url}" target="_blank" class="btn-sm"><i class="fa-solid fa-eye"></i> Ver</a>
-                        ${!isDrive ? `<button onclick="deleteDocument('${folioId}', '${doc.name}')" class="btn-sm btn-danger"><i class="fa-solid fa-trash"></i></button>` : ''}
-                    </div>
-                ` : `
-                    <div class="doc-pending">No detectado</div>
-                    <button class="btn-primary btn-full" onclick="document.getElementById('in-${cleanId}').click()"><i class="fa-solid fa-upload"></i> Subir Manual</button>
-                `}
-                <input type="file" id="in-${cleanId}" style="display:none" onchange="uploadToDrive('${folioId}', '${doc.name}', this)">
+    let timelineHtml = '<div class="timeline">';
+    steps.forEach((step, idx) => {
+        const isCompleted = idx < currentIdx;
+        const isActive = idx === currentIdx;
+        timelineHtml += `
+            <div class="timeline-item ${isCompleted ? 'completed' : ''} ${isActive ? 'active' : ''}">
+                <div class="timeline-dot"><i class="fa-solid ${step.icon}"></i></div>
+                <div class="timeline-content">
+                    <div class="timeline-date">${isActive ? 'Estado Actual' : (isCompleted ? 'Completado' : 'Pendiente')}</div>
+                    <h4>${step.name}</h4>
+                    <p>${isActive ? 'El folio se encuentra actualmente en este proceso.' : ''}</p>
+                </div>
             </div>
         `;
     });
-};
+    timelineHtml += '</div>';
+    body.innerHTML = timelineHtml;
+}
 
-window.uploadToDrive = async (folioId, docType, input) => {
-    const file = input.files[0]; if(!file) return;
-    const overlay = document.createElement('div');
-    overlay.className = 'modal-overlay active'; overlay.style.zIndex = '9999';
-    overlay.innerHTML = `<div class="loader-box"><i class="fa-solid fa-brain fa-spin"></i><h3>Analizando ${docType}...</h3><p>Extrayendo datos con IA...</p></div>`;
-    document.body.appendChild(overlay);
-    const reader = new FileReader();
-    reader.onload = async () => {
-        try {
-            const payload = { 
-                action: 'uploadFile', 
-                folioId: folioId.toString(), 
-                docType, 
-                filename: file.name, 
-                mimeType: file.type, 
-                fileBase64: reader.result.split(',')[1] 
-            };
-            console.log("Enviando payload a:", SCRIPT_URL);
-            const res = await fetch(SCRIPT_URL, { 
-                method: 'POST', 
-                body: JSON.stringify(payload), 
-                redirect: 'follow',
-                mode: 'cors' 
-            });
-            
-            if (!res.ok) throw new Error(`HTTP Error: ${res.status}`);
-            const data = await res.json();
-            overlay.remove();
-            if(data.success) { 
-                alert("¡Documento procesado con éxito!"); 
-                loadData(); 
-                closeAllModals(); 
-            } else {
-                throw new Error(data.error || "Error en el servidor");
-            }
-        } catch(e) { 
-            overlay.remove(); 
-            console.error("Upload Error Details:", e);
-            alert("Error al subir archivo: " + e.message + "\n\nTip: Asegúrate de que el script en Google esté publicado para 'Cualquiera' (Anyone)."); 
-        }
-    };
-    reader.readAsDataURL(file);
-};
+function renderDocsTab() {
+    const body = document.getElementById('modalBody');
+    const driveFiles = JSON.parse(activeFolio.Adjuntos_Drive || '{}');
+    const docTypes = [
+        "Factura comercial", "Proforma", "Comprobante de seña", "Comprobante de balance", 
+        "Factura de flete internacional", "DUA", "Factura de flete nacional"
+    ];
 
-window.deleteDocument = async (folioId, docType) => {
-    if(!confirm(`¿Eliminar ${docType}?`)) return;
-    try {
-        const res = await fetch(SCRIPT_URL, { method: 'POST', body: JSON.stringify({ action: 'deleteFile', folioId: folioId.toString(), docType }), redirect: 'follow' });
-        const data = await res.json();
-        if(data.success) { loadData(); closeAllModals(); }
-    } catch(e) { alert("Error."); }
-};
-
-window.switchTab = (id) => {
-    document.querySelectorAll('.tab-content').forEach(c => c.style.display = 'none');
-    document.querySelectorAll('.tab-btn').forEach(b => { b.classList.remove('active-tab'); b.style.borderBottom = 'none'; b.style.color = 'var(--text-muted)'; });
-    document.getElementById(id).style.display = 'block';
-    const btn = document.getElementById('btn-' + id);
-    if(btn) { btn.classList.add('active-tab'); btn.style.borderBottom = '3px solid var(--primary)'; btn.style.color = 'white'; }
-};
-
-const updateTracker = (code) => {
-    const steps = ['produccion', 'transito', 'aduana', 'deposito'];
-    const idx = steps.indexOf(code);
-    steps.forEach((s, i) => {
-        const stepEl = document.getElementById('track-' + s);
-        if(stepEl) stepEl.classList.toggle('active', idx >= i || s === 'produccion');
-        const lineEl = document.getElementById('line-' + (i+1));
-        if(lineEl) lineEl.classList.toggle('active', idx > i);
-    });
-};
-
-const closeAllModals = () => document.querySelectorAll('.modal-overlay').forEach(m => m.classList.remove('active'));
-
-// Event Listeners
-document.getElementById('closeModalBtn').onclick = closeAllModals;
-document.getElementById('modalCloseActionBtn').onclick = closeAllModals;
-document.getElementById('newFolioBtn').onclick = () => document.getElementById('newFolioModal').classList.add('active');
-document.getElementById('closeNewFolioBtn').onclick = closeAllModals;
-document.getElementById('cancelNewFolioBtn').onclick = closeAllModals;
-document.querySelectorAll('.modal-overlay').forEach(o => o.onclick = (e) => { if(e.target === o) closeAllModals(); });
-
-document.getElementById('saveNewFolioBtn').onclick = async (e) => {
-    e.preventDefault();
-    const btn = e.currentTarget;
-    const oldHtml = btn.innerHTML;
-    btn.disabled = true;
-    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Guardando...';
-    const payload = { id: (allData.length + 100).toString(), supplier: document.getElementById('inputSupplier').value, description: document.getElementById('inputDescription').value, purchaseDate: document.getElementById('inputPurchaseDate').value, status: "En Producción" };
-    try {
-        const res = await fetch(SCRIPT_URL, { 
-            method: 'POST', 
-            body: JSON.stringify(payload), 
-            redirect: 'follow',
-            mode: 'cors'
-        });
-        const data = await res.json();
-        if(data.success) { 
-            document.getElementById('newFolioForm').reset(); 
-            loadData(); 
-            closeAllModals(); 
+    let html = `<h3>Gestión Documental Automática (Drive)</h3><div class="docs-list">`;
+    
+    docTypes.forEach(type => {
+        const file = Object.keys(driveFiles).find(name => name.toLowerCase().includes(type.toLowerCase()));
+        if (file) {
+            html += `
+                <div class="doc-card">
+                    <div class="doc-icon pdf"><i class="fa-solid fa-file-pdf"></i></div>
+                    <div class="doc-info">
+                        <h4>${type}</h4>
+                        <span>${file}</span>
+                    </div>
+                    <a href="${driveFiles[file].url}" target="_blank" class="icon-btn"><i class="fa-solid fa-eye"></i></a>
+                </div>
+            `;
         } else {
-            alert("Error: " + data.error);
+            html += `
+                <div class="doc-card pending">
+                    <div class="doc-icon pdf-pending"><i class="fa-solid fa-file-arrow-up"></i></div>
+                    <div class="doc-info">
+                        <h4>${type}</h4>
+                        <span>Pendiente de carga en Drive</span>
+                    </div>
+                    <button class="upload-btn" onclick="triggerUpload('${type}')">Subir</button>
+                </div>
+            `;
         }
-    } catch(e) { 
-        console.error("Save Folio Error:", e);
-        alert("Error al crear folio: " + e.message); 
-    } finally { 
-        btn.disabled = false; 
-        btn.innerHTML = oldHtml; 
-    }
-};
+    });
 
-document.addEventListener('DOMContentLoaded', loadData);
+    html += '</div>';
+    body.innerHTML = html;
+}
+
+function renderEconomicTab() {
+    const body = document.getElementById('modalBody');
+    const econ = activeFolio.Economico || {};
+    const total = parseFloat(econ['Costo Total USD']) || 0;
+    const tc = parseFloat(econ['T. Cambio']) || 1;
+
+    body.innerHTML = `
+        <div class="econ-grid">
+            <div class="total-card">
+                <label>Costo Total Estimado</label>
+                <div class="value">USD ${total.toLocaleString('es-AR', {minimumFractionDigits: 2})}</div>
+            </div>
+            <div class="info-cell">
+                <label>Tipo de Cambio (UYU/USD)</label>
+                <div style="display:flex; gap:10px; align-items:center;">
+                    <input type="number" id="inputTC" value="${tc}" style="width:80px; padding:5px; background:var(--bg-main); border:1px solid var(--border); color:white; border-radius:4px;">
+                    <button class="btn-refresh" onclick="updateFX()" style="padding:5px 10px; font-size:0.8rem;">Guardar</button>
+                </div>
+                <small style="color:var(--text-muted); margin-top:5px; display:block;">Se utiliza para convertir Despacho y Flete Nacional.</small>
+            </div>
+        </div>
+
+        <div class="group-header" style="margin-top:20px;">Desglose de Costos</div>
+        <div class="folio-details-grid" style="margin-top:10px;">
+            <div class="info-cell"><label>FOB Factura</label><div>USD ${parseFloat(econ['FOB Factura Comercial'] || 0).toLocaleString()}</div></div>
+            <div class="info-cell"><label>Monto Señado</label><div>USD ${parseFloat(econ['Monto Señado'] || 0).toLocaleString()}</div></div>
+            <div class="info-cell"><label>Monto Balance</label><div>USD ${parseFloat(econ['Monto Balance'] || 0).toLocaleString()}</div></div>
+            <div class="info-cell"><label>Flete Int.</label><div>USD ${parseFloat(econ['Flete'] || 0).toLocaleString()}</div></div>
+            <div class="info-cell"><label>Despacho</label><div>${parseFloat(econ['Despacho'] || 0).toLocaleString()} ${econ['Moneda'] || ''}</div></div>
+            <div class="info-cell"><label>Flete Nacional</label><div>${parseFloat(econ['Flete Nacional'] || 0).toLocaleString()} ${econ['Moneda'] || ''}</div></div>
+        </div>
+
+        <div class="group-header" style="margin-top:20px; color:var(--status-transito);">Observaciones de la IA</div>
+        <div class="info-cell full-width" style="border-color:var(--status-transito);">
+            <div>${econ['Observaciones IA'] || 'Sin notas de revisión.'}</div>
+        </div>
+    `;
+}
+
+// --- ACCIONES BACKEND ---
+async function updateFX() {
+    const tc = document.getElementById('inputTC').value;
+    const btn = document.querySelector('.econ-grid .btn-refresh');
+    btn.disabled = true;
+    btn.innerText = '...';
+
+    try {
+        const res = await fetch(SCRIPT_URL, {
+            method: 'POST',
+            body: JSON.stringify({ action: 'updateFX', folioId: activeFolio.Folio, tc: tc })
+        });
+        const result = await res.json();
+        if (result.success) {
+            alert('Tipo de cambio actualizado. Recalculando...');
+            await loadData();
+            // Re-abrir folio para ver cambios
+            activeFolio = allData.find(f => f.Folio.toString() === activeFolio.Folio.toString());
+            renderEconomicTab();
+        }
+    } catch (e) {
+        alert('Error al actualizar tipo de cambio.');
+    } finally {
+        btn.disabled = false;
+        btn.innerText = 'Guardar';
+    }
+}
+
+function triggerUpload(docType) {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.onchange = async (e) => {
+        const file = e.target.files[0];
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = async () => {
+            const base64 = reader.result.split(',')[1];
+            await uploadFile(base64, file.name, file.type, docType);
+        };
+    };
+    input.click();
+}
+
+async function uploadFile(base64, filename, mimeType, docType) {
+    const body = document.getElementById('modalBody');
+    body.innerHTML = '<div class="loading"><i class="fa-solid fa-brain fa-spin"></i> La IA está analizando el documento...</div>';
+
+    try {
+        const res = await fetch(SCRIPT_URL, {
+            method: 'POST',
+            body: JSON.stringify({
+                action: 'uploadFile',
+                folioId: activeFolio.Folio,
+                fileBase64: base64,
+                filename: filename,
+                mimeType: mimeType,
+                docType: docType
+            })
+        });
+        const result = await res.json();
+        if (result.success) {
+            alert('Documento procesado con éxito.');
+            await loadData();
+            activeFolio = allData.find(f => f.Folio.toString() === activeFolio.Folio.toString());
+            renderDocsTab();
+        }
+    } catch (e) {
+        alert('Error en la subida.');
+        renderDocsTab();
+    }
+}
