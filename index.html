@@ -9,6 +9,8 @@
     <!-- Font Awesome for Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="styles.css">
+    <!-- Chart.js for Enterprise Analytics -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
     <div class="app-container">
@@ -95,6 +97,18 @@
                             <h2 id="count-deposito">0</h2>
                             <span class="stat-value" id="val-deposito">USD 0.00</span>
                         </div>
+                    </div>
+                </div>
+
+                <!-- Analytics Section -->
+                <div class="analytics-row" style="display: grid; grid-template-columns: 1.5fr 1fr; gap: 20px; margin-bottom: 30px;">
+                    <div class="stat-card" style="padding: 20px;">
+                        <div class="section-header"><h3>Volumen de Compras (USD) - Mensual</h3></div>
+                        <canvas id="purchaseChart" height="120"></canvas>
+                    </div>
+                    <div class="stat-card" style="padding: 20px;">
+                        <div class="section-header"><h3>Distribución por Estado</h3></div>
+                        <canvas id="statusPieChart" height="160"></canvas>
                     </div>
                 </div>
 
