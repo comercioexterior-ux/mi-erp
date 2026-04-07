@@ -30,10 +30,7 @@ async function loadData() {
         const data = await response.json();
         if (data.error) throw new Error(data.error);
 
-        // SI LLEGAMOS AQUÍ, HAY ÉXITO
-        alert("--- CONEXIÓN EXITOSA ---\nSe han cargado " + data.length + " folios correctamente.");
-        
-        allData = data;
+        allData = Array.isArray(data) ? data : [];
         updateDashboard();
         applyCurrentState();
     } catch (err) {
