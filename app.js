@@ -1,11 +1,12 @@
-let SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxAYq1xbI6OiNR7PGBFDgiif1H670kmzSPiJFE7_2RlUDYzR6_stRnKUQN1bdoqLnHI/exec';
+let SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwtd6t_hQgqjR_EQAfPS8w8dvkaYKovhpJ-cyVo3G7w8KG274WtyaZIGydY7OrsMW-X/exec';
 let allData = [];
 let filteredData = [];
 let currentFilter = 'all';
+let currentView = 'operative';
 let sortConfig = { key: 'folio', direction: 'desc' };
 let charts = {};
 
-// --- INITIALIZATION ---
+// --- INICIALIZACIÓN ---
 document.addEventListener('DOMContentLoaded', () => {
     loadData();
     setupModalEvents();
@@ -15,13 +16,12 @@ function setupModalEvents() {
     const modal = document.getElementById('folioModal');
     const closeBtn = document.getElementById('closeModal');
     if (closeBtn) closeBtn.onclick = () => modal.classList.remove('active');
-    window.onclick = (e) => { if(e.target === modal) modal.classList.remove('active'); };
 }
 
-// --- CORE DATA LOADING v8.0 ---
+// --- CORE DATA LOADING v9.0 ---
 async function loadData() {
     const btn = document.getElementById('refreshDataBtn');
-    if(btn) { btn.innerHTML = '<i class="fa-solid fa-sync fa-spin"></i> Auditando ERP...'; btn.disabled = true; }
+    if(btn) { btn.innerHTML = '<i class="fa-solid fa-sync fa-spin"></i> Sincronizando...'; btn.disabled = true; }
 
     try {
         const response = await fetch(`${SCRIPT_URL}?sync=true`);
@@ -29,103 +29,152 @@ async function loadData() {
         if (data.error) throw new Error(data.error);
 
         allData = Array.isArray(data) ? data : [];
-        console.log("ERP Audit Complete:", allData.length, "folios merged.");
+        console.log("ERP v9.0 Unified Data Loaded:", allData.length);
         
-        updateDashboard();
-        initCharts();
+        updateOperativeDashboard();
+        updateFinancialDashboard();
         applyCurrentState();
     } catch (err) {
-        console.error("ERP Reconstruction Error:", err);
-        alert("CRÍTICO: Fallo en la arquitectura de datos. Revisa la consola.");
+        console.error("Master Sync Failed:", err);
     } finally {
         if(btn) { btn.innerHTML = '<i class="fa-solid fa-sync"></i> Actualizar'; btn.disabled = false; }
     }
 }
 
-// --- INTERACTIVE DASHBOARD ---
-function filterByStatus(status) {
-    currentFilter = (currentFilter === status) ? 'all' : status;
+// --- VIEW MANAGEMENT ---
+function switchView(viewName) {
+    currentView = viewName;
+    document.querySelectorAll('.view-section').forEach(s => s.classList.remove('active'));
+    document.querySelectorAll('.sidebar-nav li').forEach(li => li.classList.remove('active'));
     
-    // UI Feedback: Mark active card
-    const cards = document.querySelectorAll('.stat-card');
-    cards.forEach(c => {
-        const title = c.querySelector('h3').innerText;
-        if (title.includes(status) && currentFilter !== 'all') {
-            c.style.borderColor = 'var(--primary)';
-        } else {
-            c.style.borderColor = 'var(--border)';
-        }
-    });
+    document.getElementById(`view-${viewName}`)?.classList.add('active');
+    document.getElementById(`nav-${viewName}`)?.classList.add('active');
 
-    applyCurrentState();
+    if (viewName === 'financial') renderFinancialCharts();
 }
 
-function updateDashboard() {
-    const stats = { 'Producción': { count: 0, fob: 0 }, 'Tránsito': { count: 0, fob: 0 }, 'Aduana': { count: 0, fob: 0 }, 'Depósito': { count: 0, fob: 0 } };
+// --- OPERATIVE DASHBOARD v9.0 ---
+function updateOperativeDashboard() {
+    const stats = { 'Producción': { c: 0, v: 0 }, 'Tránsito': { c: 0, v: 0 }, 'Aduana': { c: 0, v: 0 }, 'Depósito': { c: 0, v: 0 } };
     
     allData.forEach(f => {
         if (stats[f.estado]) {
-            stats[f.estado].count++;
-            stats[f.estado].fob += parseFloat(f.fob.toString().replace(/[^0-9.]/g, '')) || 0;
+            stats[f.estado].c++;
+            stats[f.estado].v += parseFloat(f.fob.toString().replace(/[^0-9.]/g, '')) || 0;
         }
     });
 
     Object.keys(stats).forEach(k => {
         const id = k.toLowerCase().replace('ó', 'o');
-        const countEl = document.getElementById(`count-${id}`);
-        const valEl = document.getElementById(`val-${id}`);
-        if(countEl) countEl.innerText = stats[k].count;
-        if(valEl) valEl.innerText = `USD ${stats[k].fob.toLocaleString('es-AR', {minimumFractionDigits: 0, maximumFractionDigits: 0})}`;
+        if(document.getElementById(`count-${id}`)) document.getElementById(`count-${id}`).innerText = stats[k].c;
+        if(document.getElementById(`val-${id}`)) document.getElementById(`val-${id}`).innerText = `FOB USD ${stats[k].v.toLocaleString('es-AR', {maximumFractionDigits:0})}`;
     });
+
+    // ETA List (Próximos Arribos)
+    const etaList = allData.filter(f => f.eta && f.estado !== 'Depósito')
+                    .sort((a,b) => parseDate(a.eta) - parseDate(b.eta))
+                    .slice(0, 5);
+    
+    const container = document.getElementById('etaListContainer');
+    if(container) {
+        container.innerHTML = etaList.map(f => `
+            <div style="display:flex; justify-content:space-between; padding:12px 0; border-bottom:1px solid rgba(255,255,255,0.05);">
+                <div><b style="color:var(--primary)">#${f.folio}</b> <span style="font-size:0.8rem; margin-left:8px;">${f.proveedor}</span></div>
+                <div style="font-size:0.85rem; font-weight:600;">${f.eta}</div>
+            </div>
+        `).join('');
+    }
+
+    renderOperativePie();
 }
 
-// --- CHARTA.JS ANALYTICS ---
-function initCharts() {
-    const ctxMain = document.getElementById('purchaseChart')?.getContext('2d');
-    const ctxPie = document.getElementById('statusPieChart')?.getContext('2d');
-    if (!ctxMain || !ctxPie) return;
+function renderOperativePie() {
+    const ctx = document.getElementById('operativePieChart')?.getContext('2d');
+    if(!ctx) return;
+    const mix = { 'Producción': 0, 'Tránsito': 0, 'Aduana': 0, 'Depósito': 0, 'Cotización': 0 };
+    allData.forEach(f => mix[f.estado]++);
 
-    // 1. Compras por Año (Logistics B Column)
-    const yearData = { '2024': 0, '2025': 0, '2026': 0 };
-    allData.forEach(f => {
-        const year = f.fecha_compra?.split('/')[2];
-        const fob = parseFloat(f.fob?.replace(/[^0-9.]/g, '')) || 0;
-        if (yearData.hasOwnProperty(year)) yearData[year] += fob;
-    });
-
-    if (charts.bar) charts.bar.destroy();
-    charts.bar = new Chart(ctxMain, {
-        type: 'bar',
-        data: {
-            labels: Object.keys(yearData),
-            datasets: [{ label: 'FOB Estimado USD', data: Object.values(yearData), backgroundColor: '#3b82f6', borderRadius: 6 }]
-        },
-        options: { responsive: true, plugins: { legend: { display: false } } }
-    });
-
-    // 2. Distribución por Estado
-    const stateData = { 'Cotización': 0, 'Producción': 0, 'Tránsito': 0, 'Aduana': 0, 'Depósito': 0 };
-    allData.forEach(f => { if(stateData.hasOwnProperty(f.estado)) stateData[f.estado]++; });
-
-    if (charts.pie) charts.pie.destroy();
-    charts.pie = new Chart(ctxPie, {
+    if(charts.opPie) charts.opPie.destroy();
+    charts.opPie = new Chart(ctx, {
         type: 'doughnut',
         data: {
-            labels: Object.keys(stateData),
-            datasets: [{ data: Object.values(stateData), backgroundColor: ['#94a3b8', '#3b82f6', '#f59e0b', '#ef4444', '#10b981'] }]
+            labels: Object.keys(mix),
+            datasets: [{ data: Object.values(mix), backgroundColor: ['#3b82f6', '#f59e0b', '#ef4444', '#10b981', '#94a3b8'] }]
         },
-        options: { responsive: true, cutout: '70%', plugins: { legend: { position: 'bottom', labels: { color: '#94a3b8' } } } }
+        options: { cutout: '70%', plugins: { legend: { position: 'bottom', labels: { color: '#94a3b8', boxWidth: 12 } } } }
     });
 }
 
-// --- TABLE LOGIC (SORTING & SEARCHING) ---
-function sortTable(key) {
-    if (sortConfig.key === key) {
-        sortConfig.direction = sortConfig.direction === 'asc' ? 'desc' : 'asc';
-    } else {
-        sortConfig.key = key;
-        sortConfig.direction = 'desc';
-    }
+// --- FINANCIAL DASHBOARD v9.0 ---
+function updateFinancialDashboard() {
+    let totalFob = 0;
+    let totalFobFlete = 0;
+    let leadSum = 0;
+    let leadCount = 0;
+
+    allData.forEach(f => {
+        const fob = parseFloat(f.fob.toString().replace(/[^0-9.]/g, '')) || 0;
+        const ff = parseFloat(f.fob_flete_usd.toString().replace(/[^0-9.]/g, '')) || 0;
+        const lead = parseFloat(f.lead_time);
+
+        totalFob += fob;
+        totalFobFlete += ff;
+        if(!isNaN(lead)) { leadSum += lead; leadCount++; }
+    });
+
+    if(document.getElementById('fin-fob-total')) document.getElementById('fin-fob-total').innerText = `USD ${totalFob.toLocaleString('es-AR', {maximumFractionDigits:0})}`;
+    if(document.getElementById('fin-fob-flete')) document.getElementById('fin-fob-flete').innerText = `USD ${totalFobFlete.toLocaleString('es-AR', {maximumFractionDigits:0})}`;
+    if(document.getElementById('fin-ticket-avg')) document.getElementById('fin-ticket-avg').innerText = `USD ${(totalFob/allData.length || 0).toLocaleString('es-AR', {maximumFractionDigits:0})}`;
+    if(document.getElementById('fin-lead-avg')) document.getElementById('fin-lead-avg').innerText = `${(leadSum/leadCount || 0).toFixed(1)} Meses`;
+}
+
+function renderFinancialCharts() {
+    const dataByMonth = {}, dataByYear = {}, dataByVendor = {}, dataByCat = {}, dataByState = {}, dataByABC = {};
+
+    allData.forEach(f => {
+        const fob = parseFloat(f.fob.replace(/[^0-9.]/g, '')) || 0;
+        const dateParts = f.fecha_compra.split('/');
+        const month = dateParts[1] ? `${dateParts[1]}/${dateParts[2]}` : 'N/A';
+        const year = dateParts[2] || 'N/A';
+
+        dataByMonth[month] = (dataByMonth[month] || 0) + fob;
+        dataByYear[year] = (dataByYear[year] || 0) + fob;
+        dataByVendor[f.proveedor] = (dataByVendor[f.proveedor] || 0) + fob;
+        dataByCat[f.categoria] = (dataByCat[f.categoria] || 0) + fob;
+        dataByState[f.estado] = (dataByState[f.estado] || 0) + fob;
+        dataByABC[f.abc] = (dataByABC[f.abc] || 0) + fob;
+    });
+
+    // Chart: Months
+    initChart('finChartMonths', 'bar', Object.keys(dataByMonth), Object.values(dataByMonth), '#3b82f6');
+    // Chart: Years
+    initChart('finChartYears', 'bar', Object.keys(dataByYear), Object.values(dataByYear), '#10b981');
+    // Chart: Vendors (Top 5)
+    const topVendors = Object.entries(dataByVendor).sort((a,b) => b[1]-a[1]).slice(0, 5);
+    initChart('finChartVendors', 'bar', topVendors.map(v => v[0]), topVendors.map(v => v[1]), '#f59e0b');
+    // Chart: Categories
+    initChart('finChartCats', 'pie', Object.keys(dataByCat), Object.values(dataByCat), ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6']);
+    // Chart: States
+    initChart('finChartStates', 'doughnut', Object.keys(dataByState), Object.values(dataByState), ['#3b82f6', '#f59e0b', '#ef4444', '#10b981']);
+    // Chart: ABC
+    initChart('finChartABC', 'pie', Object.keys(dataByABC), Object.values(dataByABC), ['#ef4444', '#f59e0b', '#10b981']);
+}
+
+function initChart(id, type, labels, data, colors) {
+    const ctx = document.getElementById(id)?.getContext('2d');
+    if(!ctx) return;
+    if(charts[id]) charts[id].destroy();
+    charts[id] = new Chart(ctx, {
+        type: type,
+        data: { labels: labels, datasets: [{ data: data, backgroundColor: colors, borderRadius: type === 'bar' ? 4 : 0 }] },
+        options: { responsive: true, plugins: { legend: { display: type !== 'bar', position: 'bottom', labels: { color: '#94a3b8', boxWidth: 10, font: { size: 10 } } } }, scales: type === 'bar' ? { y: { beginAtZero: true, grid: { color: 'rgba(255,255,255,0.05)' } } } : {} }
+    });
+}
+
+// --- FILTERS & LIST VIEW v9.0 ---
+function quickFilterStatus(status) {
+    currentFilter = status;
+    switchView('list');
     applyCurrentState();
 }
 
@@ -133,35 +182,30 @@ function applyCurrentState(searchTerm = "") {
     const search = searchTerm || document.getElementById('searchInput')?.value?.toLowerCase() || "";
     
     filteredData = allData.filter(f => {
-        const matchStatus = currentFilter === 'all' || f.estado === currentFilter;
-        const matchSearch = !search || 
-            f.folio?.toString().toLowerCase().includes(search) || 
-            f.proveedor?.toLowerCase().includes(search) || 
-            f.mercaderia?.toLowerCase().includes(search);
-        return matchStatus && matchSearch;
+        const mStatus = currentFilter === 'all' || f.estado === currentFilter;
+        const mSearch = !search || 
+            f.folio.toString().toLowerCase().includes(search) || 
+            f.proveedor.toLowerCase().includes(search) || 
+            f.mercaderia.toLowerCase().includes(search);
+        return mStatus && mSearch;
     });
 
-    // Real Sorting Logic (Dates, Numbers, Text)
-    filteredData.sort((a, b) => {
-        let vA = a[sortConfig.key] || "";
-        let vB = b[sortConfig.key] || "";
+    const indicator = document.getElementById('filterIndicator');
+    if(indicator) {
+        if(currentFilter !== 'all') { indicator.innerText = `Estado: ${currentFilter}`; indicator.style.display = 'block'; }
+        else { indicator.style.display = 'none'; }
+    }
 
-        if (sortConfig.key === 'fob' || sortConfig.key === 'folio') {
+    // Sort & Render
+    filteredData.sort((a,b) => {
+        let vA = a[sortConfig.key], vB = b[sortConfig.key];
+        if(sortConfig.key === 'fob' || sortConfig.key === 'folio') {
             vA = parseFloat(vA.toString().replace(/[^0-9.]/g, '')) || 0;
             vB = parseFloat(vB.toString().replace(/[^0-9.]/g, '')) || 0;
-        } else if (vA.toString().includes('/')) {
-            const partsA = vA.split('/');
-            const partsB = vB.split('/');
-            vA = new Date(partsA[2], partsA[1]-1, partsA[0]).getTime() || 0;
-            vB = new Date(partsB[2], partsB[1]-1, partsB[0]).getTime() || 0;
-        } else {
-            vA = vA.toString().toLowerCase();
-            vB = vB.toString().toLowerCase();
+        } else if(vA.toString().includes('/')) {
+            vA = parseDate(vA); vB = parseDate(vB);
         }
-
-        if (vA < vB) return sortConfig.direction === 'asc' ? -1 : 1;
-        if (vA > vB) return sortConfig.direction === 'asc' ? 1 : -1;
-        return 0;
+        return sortConfig.direction === 'asc' ? (vA > vB ? 1 : -1) : (vA < vB ? 1 : -1);
     });
 
     renderTable();
@@ -170,65 +214,50 @@ function applyCurrentState(searchTerm = "") {
 function renderTable() {
     const tbody = document.getElementById('foliosTableBody');
     if(!tbody) return;
-    tbody.innerHTML = '';
-
-    filteredData.forEach(f => {
-        const tr = document.createElement('tr');
-        tr.onclick = () => openFolioModal(f.folio);
-        tr.innerHTML = `
+    tbody.innerHTML = filteredData.map(f => `
+        <tr onclick="openFolioModal('${f.folio}')">
             <td>#${f.folio}</td>
             <td style="font-weight:600;">${f.proveedor}</td>
             <td style="font-size:0.8rem;">${f.mercaderia}</td>
             <td><span class="status-badge status-${f.estado.toLowerCase().replace('í', 'i').replace('ó', 'o')}">${f.estado}</span></td>
-            <td>${f.fecha_compra || "-"}</td>
+            <td>${f.fecha_compra}</td>
             <td>${f.etd || "-"}</td>
-            <td>${f.eta || "-"}</td>
-            <td style="color:#60a5fa; font-weight:700;">USD ${parseFloat(f.fob.replace(/[^0-9.]/g, '') || 0).toLocaleString()}</td>
-        `;
-        tbody.appendChild(tr);
-    });
+            <td>USD ${parseFloat(f.fob.replace(/[^0-9.]/g, '') || 0).toLocaleString()}</td>
+        </tr>
+    `).join('');
 }
 
-// --- DEEP FICHA FOLIO v2 ---
-function openFolioModal(folioId) {
-    const f = allData.find(x => x.folio.toString() === folioId.toString());
+function openFolioModal(id) {
+    const f = allData.find(x => x.folio.toString() === id.toString());
     if(!f) return;
-
     document.getElementById('modalFolioId').innerText = `Folio #${f.folio} [ABC: ${f.abc}]`;
     document.getElementById('modalStatus').innerText = f.estado;
     document.getElementById('modalStatus').className = `status-badge status-${f.estado.toLowerCase().replace('í', 'i').replace('ó', 'o')}`;
-
+    
     document.getElementById('modalBody').innerHTML = `
-        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:30px;">
-            <!-- Tech Details -->
-            <div class="modal-section">
-                <h4 style="color:var(--text-muted); margin-bottom:15px; text-transform:uppercase; font-size:0.75rem;"><i class="fa-solid fa-ship"></i> Logística</h4>
-                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px;">
-                    <div class="info-cell"><label>Origen</label><div>${f.origen || "-"}</div></div>
-                    <div class="info-cell"><label>Buque</label><div>${f.buque || "-"}</div></div>
-                    <div class="info-cell"><label>Incoterm</label><div>${f.incoterm || "-"}</div></div>
-                    <div class="info-cell"><label>Contenedores</label><div>${f.contenedores || "-"}</div></div>
-                    <div class="info-cell"><label>Volumen (m3)</label><div>${f.vol_m3 || "-"}</div></div>
-                    <div class="info-cell"><label>Peso (kg)</label><div>${f.peso || "-"}</div></div>
-                </div>
-            </div>
-            <!-- Finance Details -->
-            <div class="modal-section">
-                <h4 style="color:var(--text-muted); margin-bottom:15px; text-transform:uppercase; font-size:0.75rem;"><i class="fa-solid fa-coins"></i> Finanzas</h4>
-                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px;">
-                    <div class="info-cell"><label>FOB Factura</label><div>USD ${f.fob}</div></div>
-                    <div class="info-cell"><label>Seña USD</label><div>USD ${f.sena_usd}</div></div>
-                    <div class="info-cell"><label>Balance USD</label><div>USD ${f.balance_usd}</div></div>
-                    <div class="info-cell" style="background:rgba(16, 185, 129, 0.05);"><label>Costo Estimado</label><div style="color:var(--success); font-weight:800;">USD ${f.costo_total_estimado}</div></div>
-                    <div class="info-cell"><label>Despacho</label><div>UYU ${f.despacho_uyu}</div></div>
-                    <div class="info-cell"><label>Lead Time</label><div>${f.lead_time}</div></div>
-                </div>
-            </div>
-        </div>
-        <div style="margin-top:20px; padding:15px; background:rgba(255,255,255,0.02); border-radius:12px; font-size:0.85rem; color:var(--text-muted);">
-            <i class="fa-solid fa-info-circle"></i> Estado Completitud: <b>${f.estado_completitud}</b>
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:20px;">
+            <div class="info-cell"><label>Proveedor</label><div>${f.proveedor}</div></div>
+            <div class="info-cell"><label>Mercadería</label><div>${f.mercaderia}</div></div>
+            <div class="info-cell"><label>Confirmación</label><div>${f.fecha_compra}</div></div>
+            <div class="info-cell"><label>ETD</label><div>${f.etd || "-"}</div></div>
+            <div class="info-cell"><label>ETA</label><div>${f.eta || "-"}</div></div>
+            <div class="info-cell"><label>FOB</label><div style="color:var(--primary); font-weight:800;">USD ${f.fob}</div></div>
+            <div class="info-cell"><label>Despacho</label><div>UYU ${f.despacho_uyu}</div></div>
+            <div class="info-cell" style="background:rgba(16,185,129,0.05);"><label>Costo Est. USD</label><div style="color:var(--success); font-weight:800;">USD ${f.costo_total_estimado}</div></div>
         </div>
     `;
-
     document.getElementById('folioModal').classList.add('active');
+}
+
+function parseDate(s) { 
+    if(!s || s === "-") return 0;
+    const p = s.split('/'); 
+    return new Date(p[2], p[1]-1, p[0]).getTime(); 
+}
+
+function handleGlobalSearch(v) { applyCurrentState(v); }
+function sortTable(k) { 
+    if(sortConfig.key === k) sortConfig.direction = sortConfig.direction === 'asc' ? 'desc' : 'asc';
+    else { sortConfig.key = k; sortConfig.direction = 'desc'; }
+    applyCurrentState();
 }
