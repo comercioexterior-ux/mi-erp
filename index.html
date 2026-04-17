@@ -3,172 +3,169 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DISER SAS - ERP de Importaciones v9.0</title>
+    <title>DISER SAS - ERP Master v10.0</title>
     <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-    <!-- Font Awesome for Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="styles.css">
-    <!-- Chart.js for Enterprise Analytics -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
     <div class="app-container">
-        <!-- Sidebar Navigation -->
+        <!-- Sidebar -->
         <aside class="sidebar">
             <div class="sidebar-header">
-                <div class="logo">
-                    <i class="fa-solid fa-ship"></i>
-                    <span>DISER Imports</span>
-                </div>
+                <div class="logo"><i class="fa-solid fa-ship"></i> <span>DISER ERP</span></div>
             </div>
             <nav class="sidebar-nav">
                 <ul>
-                    <li class="active" id="nav-operative"><a href="#" onclick="switchView('operative')"><i class="fa-solid fa-chart-line"></i> Dashboard Operativo</a></li>
-                    <li id="nav-financial"><a href="#" onclick="switchView('financial')"><i class="fa-solid fa-coins"></i> Análisis Financiero</a></li>
-                    <li id="nav-list"><a href="#" onclick="switchView('list')"><i class="fa-solid fa-folder-open"></i> Seguimiento de Folios</a></li>
-                    <li><a href="#"><i class="fa-solid fa-file-invoice-dollar"></i> Cotizaciones</a></li>
+                    <li class="active" id="nav-operative"><a href="#" onclick="switchView('operative')"><i class="fa-solid fa-truck-fast"></i> Tablero Logístico</a></li>
+                    <li id="nav-financial"><a href="#" onclick="switchView('financial')"><i class="fa-solid fa-chart-pie"></i> Análisis Financiero</a></li>
+                    <li id="nav-list"><a href="#" onclick="switchView('list')"><i class="fa-solid fa-database"></i> Base Maestra Folios</a></li>
                 </ul>
+                <div class="sidebar-footer">
+                    <button class="btn-sync" id="refreshBtn" onclick="loadData()"><i class="fa-solid fa-sync"></i> Sincronizar</button>
+                </div>
             </nav>
         </aside>
 
-        <!-- Main Content Area -->
+        <!-- Main Content -->
         <main class="main-content">
-            <!-- Header -->
             <header class="top-header">
-                <div class="search-bar">
+                <div class="search-box">
                     <i class="fa-solid fa-search"></i>
-                    <input type="text" id="searchInput" placeholder="Buscar folios, proveedores, mercadería..." oninput="handleGlobalSearch(this.value)">
+                    <input type="text" id="globalSearch" placeholder="Buscar por folio, proveedor, mercadería..." oninput="handleGlobalSearch(this.value)">
                 </div>
-                <div class="user-profile">
-                    <button class="btn-refresh" id="refreshDataBtn" onclick="loadData()"><i class="fa-solid fa-sync"></i> Actualizar</button>
-                    <div class="avatar">
-                        <img src="https://ui-avatars.com/api/?name=Import+User&background=0D8ABC&color=fff" alt="User">
-                    </div>
+                <div class="header-filters">
+                    <select id="yearFilter" onchange="applyFilters()">
+                        <option value="all">Todos los años</option>
+                        <option value="2025">2025</option>
+                        <option value="2026">2026</option>
+                    </select>
                 </div>
             </header>
 
-            <!-- Dashboard Operativo -->
-            <div id="view-operative" class="dashboard-content view-section active">
-                <div class="header-title" style="margin-bottom: 30px;">
-                    <h1 style="font-size: 2.2rem; font-weight: 800;">Control Logístico</h1>
-                    <p style="color: var(--text-muted);">Seguimiento real de estados (Columna J - OPERATIVA).</p>
+            <!-- VISTA: LOGÍSTICA (Cerebro Operativo) -->
+            <div id="view-operative" class="view-section active">
+                <div class="section-title">
+                    <h1>Tablero Operativo</h1>
+                    <p>Seguimiento logístico consolidado por folio (Columna J - OPERATIVA).</p>
                 </div>
 
-                <!-- Stats Cards -->
-                <div class="stats-grid">
-                    <div class="stat-card" onclick="quickFilterStatus('Producción')">
-                        <h3>Producción</h3>
+                <div class="dashboard-kpis">
+                    <div class="kpi-card" onclick="quickFilter('Producción')">
+                        <label>Producción</label>
                         <h2 id="count-produccion">0</h2>
-                        <span class="stat-value" id="val-produccion">FOB USD 0</span>
+                        <span id="fob-produccion">USD 0</span>
                     </div>
-                    <div class="stat-card" onclick="quickFilterStatus('Tránsito')">
-                        <h3>Tránsito</h3>
+                    <div class="kpi-card" onclick="quickFilter('Tránsito')">
+                        <label>Tránsito</label>
                         <h2 id="count-transito">0</h2>
-                        <span class="stat-value" id="val-transito">FOB USD 0</span>
+                        <span id="fob-transito">USD 0</span>
                     </div>
-                    <div class="stat-card" onclick="quickFilterStatus('Aduana')">
-                        <h3>Aduana</h3>
+                    <div class="kpi-card" onclick="quickFilter('Aduana')">
+                        <label>Aduana</label>
                         <h2 id="count-aduana">0</h2>
-                        <span class="stat-value" id="val-aduana">FOB USD 0</span>
+                        <span id="fob-aduana">USD 0</span>
                     </div>
-                    <div class="stat-card" onclick="quickFilterStatus('Depósito')">
-                        <h3>En Depósito</h3>
+                    <div class="kpi-card" onclick="quickFilter('Depósito')">
+                        <label>En Depósito</label>
                         <h2 id="count-deposito">0</h2>
-                        <span class="stat-value" id="val-deposito">FOB USD 0</span>
+                        <span id="fob-deposito">USD 0</span>
                     </div>
                 </div>
 
-                <!-- Operative Row -->
-                <div class="analytics-row" style="display: grid; grid-template-columns: 1.5fr 1fr; gap: 20px; margin-bottom: 30px;">
-                    <div class="stat-card" style="padding: 24px;">
-                        <div class="section-header"><h3>Próximos Arribos (ETA)</h3></div>
-                        <div id="etaListContainer" style="margin-top:20px;">
-                            <!-- JS content -->
-                        </div>
+                <div class="operative-row">
+                    <div class="panel-card chart-container">
+                        <h3>Mix Logístico por Estado</h3>
+                        <canvas id="opStateChart"></canvas>
                     </div>
-                    <div class="stat-card" style="padding: 24px;">
-                        <div class="section-header"><h3>Mix de Estados Actual</h3></div>
-                        <canvas id="operativePieChart" height="180"></canvas>
+                    <div class="panel-card">
+                        <h3>Próximos Arribos (ETA)</h3>
+                        <ul id="etaList" class="data-list"></ul>
                     </div>
                 </div>
             </div>
 
-            <!-- Tablero Financiero (NUEVO) -->
-            <div id="view-financial" class="dashboard-content view-section">
-                <div class="header-title" style="margin-bottom: 30px;">
-                    <h1 style="font-size: 2.2rem; font-weight: 800;">Análisis Económico</h1>
-                    <p style="color: var(--text-muted);">Métricas de compra, FOB total y participación por categorías.</p>
+            <!-- VISTA: FINANZAS (Cerebro Financiero) -->
+            <div id="view-financial" class="view-section">
+                <div class="section-title">
+                    <h1>Análisis Financiero</h1>
+                    <p>KPIs de compra, FOB total y rendimiento de inversión.</p>
                 </div>
 
-                <div class="financial-summary-row" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; margin-bottom: 30px;">
-                    <div class="stat-card">
-                        <label>FOB Total Comprado</label>
+                <div class="dashboard-kpis financial">
+                    <div class="kpi-card primary">
+                        <label>FOB Total</label>
                         <h2 id="fin-fob-total">USD 0</h2>
                     </div>
-                    <div class="stat-card">
-                        <label>FOB + Flete Total</label>
-                        <h2 id="fin-fob-flete">USD 0</h2>
-                    </div>
-                    <div class="stat-card">
+                    <div class="kpi-card">
                         <label>Ticket Promedio</label>
                         <h2 id="fin-ticket-avg">USD 0</h2>
                     </div>
-                    <div class="stat-card">
-                        <label>Lead Time Promedio</label>
+                    <div class="kpi-card">
+                        <label>FOB + Flete</label>
+                        <h2 id="fin-fob-flete">USD 0</h2>
+                    </div>
+                    <div class="kpi-card">
+                        <label>Lead Time Prom.</label>
                         <h2 id="fin-lead-avg">0 Meses</h2>
                     </div>
                 </div>
 
-                <div class="charts-grid-finance" style="display:grid; grid-template-columns: repeat(3, 1fr); gap:20px; margin-bottom: 30px;">
-                    <div class="stat-card"><div class="section-header"><h4>Compras por Mes</h4></div><canvas id="finChartMonths"></canvas></div>
-                    <div class="stat-card"><div class="section-header"><h4>Compras por Año</h4></div><canvas id="finChartYears"></canvas></div>
-                    <div class="stat-card"><div class="section-header"><h4>FOB por Proveedor</h4></div><canvas id="finChartVendors"></canvas></div>
-                    <div class="stat-card"><div class="section-header"><h4>FOB por Categoría</h4></div><canvas id="finChartCats"></canvas></div>
-                    <div class="stat-card"><div class="section-header"><h4>FOB por Estado</h4></div><canvas id="finChartStates"></canvas></div>
-                    <div class="stat-card"><div class="section-header"><h4>Participación ABC</h4></div><canvas id="finChartABC"></canvas></div>
+                <div class="financial-grid">
+                    <div class="panel-card"><canvas id="chartMonths"></canvas></div>
+                    <div class="panel-card"><canvas id="chartVendors"></canvas></div>
+                    <div class="panel-card"><canvas id="chartCats"></canvas></div>
+                    <div class="panel-card"><canvas id="chartABC"></canvas></div>
                 </div>
             </div>
 
-            <!-- Seguimiento de Folios -->
-            <div id="view-list" class="dashboard-content view-section">
-                <div class="folios-section">
-                    <div class="section-header" style="display: flex; justify-content: space-between; align-items:center; margin-bottom: 20px;">
-                        <h2 style="font-size: 1.5rem; font-weight: 700;">Base Completa de Folios</h2>
-                        <div id="filterIndicator" style="display:none; background:rgba(59,130,246,0.1); color:var(--primary); padding:6px 15px; border-radius:20px; font-weight:600; font-size:0.8rem;"></div>
+            <!-- VISTA: TABLA (Base Maestra) -->
+            <div id="view-list" class="view-section">
+                <div class="table-container">
+                    <div class="table-header">
+                        <h2>Listado Maestro Consolidado</h2>
+                        <div id="filterTag" class="active-filter-tag" style="display:none"></div>
                     </div>
-                    <div class="table-container">
-                        <table>
-                            <thead>
-                                <tr>
-                                    <th onclick="sortTable('folio')">Folio <i class="fa-solid fa-sort"></i></th>
-                                    <th onclick="sortTable('proveedor')">Proveedor <i class="fa-solid fa-sort"></i></th>
-                                    <th onclick="sortTable('mercaderia')">Mercadería <i class="fa-solid fa-sort"></i></th>
-                                    <th onclick="sortTable('estado')">Estado <i class="fa-solid fa-sort"></i></th>
-                                    <th onclick="sortTable('fecha_compra')">F. Compra <i class="fa-solid fa-sort"></i></th>
-                                    <th onclick="sortTable('etd')">ETD <i class="fa-solid fa-sort"></i></th>
-                                    <th onclick="sortTable('fob')">FOB <i class="fa-solid fa-sort"></i></th>
-                                </tr>
-                            </thead>
-                            <tbody id="foliosTableBody">
-                                <!-- JS content -->
-                            </tbody>
-                        </table>
-                    </div>
+                    <table id="masterTable">
+                        <thead>
+                            <tr>
+                                <th onclick="sortTable('folio')">Folio <i class="fas fa-sort"></i></th>
+                                <th onclick="sortTable('proveedor')">Proveedor <i class="fas fa-sort"></i></th>
+                                <th onclick="sortTable('mercaderia')">Mercadería <i class="fas fa-sort"></i></th>
+                                <th onclick="sortTable('estado')">Estado <i class="fas fa-sort"></i></th>
+                                <th onclick="sortTable('fecha_compra')">F. Compra <i class="fas fa-sort"></i></th>
+                                <th onclick="sortTable('etd')">ETD <i class="fas fa-sort"></i></th>
+                                <th onclick="sortTable('eta')">ETA <i class="fas fa-sort"></i></th>
+                                <th onclick="sortTable('fob')">FOB <i class="fas fa-sort"></i></th>
+                            </tr>
+                        </thead>
+                        <tbody id="tableBody"></tbody>
+                    </table>
                 </div>
             </div>
         </main>
     </div>
 
-    <!-- Modal Ficha Folio -->
+    <!-- Modal: Ficha de Folio v10.0 -->
     <div class="modal-overlay" id="folioModal">
-        <div class="modal-content">
+        <div class="modal-content large">
             <div class="modal-header">
-                <div><h2 id="modalFolioId">Folio #000</h2><span id="modalStatus" class="status-badge">Estado</span></div>
-                <button class="close-btn" id="closeModal" aria-label="Close modal">&#x2715;</button>
+                <div><h2 id="modalTitle">Folio #000</h2> <span id="modalStatus" class="badge">ESTADO</span></div>
+                <button class="btn-close" onclick="closeModal()">×</button>
             </div>
-            <div class="modal-body" id="modalBody">
-                <!-- JS content -->
+            <div class="modal-body">
+                <div class="ficha-grid">
+                    <div class="ficha-section">
+                        <h3><i class="fa-solid fa-truck"></i> Datos Operativos</h3>
+                        <div class="detail-grid" id="operativeDetails"></div>
+                    </div>
+                    <div class="ficha-section">
+                        <h3><i class="fa-solid fa-file-invoice-dollar"></i> Datos Financieros</h3>
+                        <div class="detail-grid" id="financialDetails"></div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
