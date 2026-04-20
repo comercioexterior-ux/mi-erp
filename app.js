@@ -275,7 +275,7 @@ function renderMasterTable() {
             <td>${f.etd}</td>
             <td>${f.eta}</td>
             <td class="text-right">USD ${f.fob.toLocaleString()}</td>
-            <td onclick="event.stopPropagation()">${f.adjunto && f.adjunto.startsWith('http') ? `<a href="${f.adjunto}" target="_blank" class="btn-primary-sm btn-primary" title="Drive"><i class="fa-solid fa-link"></i></a>` : '-'}</td>
+            <td onclick="event.stopPropagation()">${f.adjunto && f.adjunto.startsWith('http') ? `<div class="folio-link" onclick="openDocViewer('${f.folio}', '${f.adjunto}')" style="white-space:nowrap;"><i class="fa-solid fa-paperclip"></i> Ver documento</div>` : '<span style="color:var(--text-muted);">-</span>'}</td>
         </tr>
     `).join('');
 }
@@ -319,19 +319,27 @@ function renderCalendar() {
         let pHTML = `<span>${d}</span>`;
         if(dayFolios.length > 0) {
             pHTML += `<div class="cal-cards-container">`;
-            dayFolios.forEach(f => {
-                pHTML += `
-                    <div class="cal-mini-card status-border-${f._semaforo}" onclick="openFolio('${f.folio}')" title="${f.proveedor}: ${f.mercaderia}">
-                        <div class="cmc-head">
-                            <b>#${f.folio}</b>
-                            ${f.adjunto && f.adjunto.startsWith('http') ? `<a href="${f.adjunto}" target="_blank" onclick="event.stopPropagation()"><i class="fa-solid fa-folder-open" style="color:var(--primary)"></i></a>` : ''}
+            dayFolios.forEach((f, idx) => {
+                if(idx < 2) {
+                    pHTML += `
+                        <div class="cal-mini-card status-border-${f._semaforo}" onclick="openFolio('${f.folio}')">
+                            <div class="cmc-head">
+                                <b>#${f.folio}</b>
+                                ${f.adjunto && f.adjunto.startsWith('http') ? `<div onclick="event.stopPropagation(); openDocViewer('${f.folio}', '${f.adjunto}')"><i class="fa-solid fa-folder-open" style="color:var(--primary); cursor:pointer;" title="Ver Documento"></i></div>` : ''}
+                            </div>
+                            <div class="cmc-prov">${f.proveedor}</div>
+                            <div class="cmc-merca">${f.mercaderia}</div>
                         </div>
-                        <div class="cmc-prov">${f.proveedor}</div>
-                        <div class="cmc-merca">${f.mercaderia}</div>
-                    </div>
-                `;
+                    `;
+                }
             });
+            if(dayFolios.length > 2) {
+                pHTML += `<div class="cal-more">+${dayFolios.length - 2} más</div>`;
+            }
             pHTML += `</div>`;
+            
+            el.onmouseenter = (e) => { clearTimeout(tooltipTimeout); showTooltip(e, dayFolios); };
+            el.onmouseleave = () => { tooltipTimeout = setTimeout(hideTooltip, 100); };
         }
         el.innerHTML = pHTML;
         container.appendChild(el);
@@ -348,7 +356,7 @@ function showTooltip(e, folios) {
             </div>
             <span>${f.proveedor} | ${f.mercaderia}</span>
             <span>ETA: ${f.eta}</span>
-            ${f.adjunto && f.adjunto.startsWith('http') ? `<a href="${f.adjunto}" target="_blank" class="btn-primary btn-primary-sm mt-2"><i class="fa-solid fa-box-open"></i> Documento</a>` : ''}
+            ${f.adjunto && f.adjunto.startsWith('http') ? `<button onclick="openDocViewer('${f.folio}', '${f.adjunto}')" class="btn-primary btn-primary-sm mt-2"><i class="fa-solid fa-box-open"></i> Ver Documento</button>` : ''}
             <button class="btn-primary btn-primary-sm mt-1" style="background:var(--bg-card); border:1px solid var(--border); color:var(--text-main);" onclick="openFolio('${f.folio}')">Ver Ficha</button>
         </div>
     `).join('<hr style="border:0; border-top:1px solid var(--border); margin: 12px 0;">');
@@ -501,7 +509,7 @@ function openFolio(id) {
 
     const act = document.getElementById('modalActions');
     if(f.adjunto && f.adjunto.startsWith('http')) {
-        act.innerHTML = `<button onclick="window.open('${f.adjunto}', '_blank')" class="btn-primary"><i class="fa-solid fa-folder-open"></i> Link Adjunto</button>`;
+        act.innerHTML = `<button onclick="openDocViewer('${f.folio}', '${f.adjunto}')" class="btn-primary"><i class="fa-solid fa-folder-open"></i> Ver Documento</button>`;
     } else {
         act.innerHTML = ``;
     }
@@ -564,6 +572,22 @@ function openFolio(id) {
     document.getElementById('folioModal').classList.add('active');
 }
 function closeModal(id) { document.getElementById(id).classList.remove('active'); }
+
+function openDocViewer(folio, rawUrl) {
+    if(!rawUrl || !rawUrl.startsWith('http')) { alert("Documento no válido."); return; }
+    
+    document.getElementById('docViewerTitle').innerText = `Documento del Folio #${folio}`;
+    document.getElementById('docExternalLink').href = rawUrl;
+    document.getElementById('docLoader').style.display = 'flex';
+    
+    let iframeUrl = rawUrl;
+    if(rawUrl.includes('drive.google.com') && rawUrl.includes('/view')) {
+        iframeUrl = rawUrl.replace('/view', '/preview');
+    }
+    
+    document.getElementById('docIframe').src = iframeUrl;
+    document.getElementById('docViewerModal').classList.add('active');
+}
 
 // --- V14 PLANIFICACIÓN ADVANCED CORE ---
 function renderPlanningTable() {

@@ -6,7 +6,8 @@
     <title>DISER SAS - ERP Gestión v14.0</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="styles.css?v=2">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
@@ -334,11 +335,36 @@
         </div>
     </div>
 
+    <!-- Modal: Visor Interno de Documentos (Drive Embed) -->
+    <div class="modal-overlay" id="docViewerModal">
+        <div class="modal-content xl" style="max-width: 80%; height: 85vh; display: flex; flex-direction: column;">
+            <div class="modal-header">
+                <h2 id="docViewerTitle">Documento del Folio</h2>
+                <div style="display:flex; gap:10px;">
+                    <button class="btn-close" onclick="closeModal('docViewerModal')">×</button>
+                </div>
+            </div>
+            <div class="modal-body" style="flex: 1; padding: 0; overflow: hidden; background: #e2e8f0; position: relative;">
+                <div id="docLoader" style="position:absolute; top:50%; left:50%; transform:translate(-50%, -50%); display:flex; flex-direction:column; align-items:center; gap:10px; color:var(--text-muted);">
+                    <i class="fa-solid fa-circle-notch fa-spin fa-2x"></i>
+                    <span>Cargando Documento...</span>
+                </div>
+                <iframe id="docIframe" src="" style="width: 100%; height: 100%; border: none; background: white; position:relative; z-index:2;" onload="document.getElementById('docLoader').style.display='none'"></iframe>
+            </div>
+            <div class="modal-footer" style="padding: 16px 24px; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; align-items: center; background: var(--bg-card);">
+                <button class="btn-primary-outline" onclick="closeModal('docViewerModal')" style="margin-right:auto;"><i class="fa-solid fa-arrow-left"></i> Volver</button>
+                <a href="#" id="docExternalLink" target="_blank" class="btn-primary"><i class="fa-solid fa-arrow-up-right-from-square"></i> Abrir en Drive (Nueva Pestaña)</a>
+            </div>
+        </div>
+    </div>
+
     <!-- Link Folio Relacionado Interaction style inject -->
     <style>
         .hidden { display: none !important; }
         .btn-danger-outline { background: transparent; color: var(--danger); border: 1px solid var(--danger); padding: 10px 16px; border-radius: 8px; cursor:pointer; font-weight: 600; font-family:'Inter'; transition:0.2s;}
         .btn-danger-outline:hover { background: var(--danger); color: white; }
+        .btn-primary-outline { background: transparent; color: var(--primary); border: 1px solid var(--primary); padding: 10px 16px; border-radius: 8px; cursor:pointer; font-weight: 600; font-family:'Inter'; transition:0.2s;}
+        .btn-primary-outline:hover { background: var(--primary); color: white; }
         .folio-link { color: var(--primary); font-weight: 700; cursor: pointer; text-decoration: underline; }
         .folio-link:hover { color: var(--primary-dark); }
         .planning-state[data-val="Pendiente"], .planning-state[data-val="Rechazado"] { background: rgba(239, 68, 68, 0.1); color: var(--danger); border-color: rgba(239, 68, 68, 0.3); }
@@ -346,6 +372,6 @@
         .planning-state[data-val="Completado"], .planning-state[data-val="Aprobado"] { background: rgba(16, 185, 129, 0.1); color: var(--success); border-color: rgba(16, 185, 129, 0.3); }
     </style>
 
-    <script src="app.js"></script>
+    <script src="app.js?v=2"></script>
 </body>
 </html>
