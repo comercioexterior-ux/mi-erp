@@ -3,8 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DISER SAS - ERP Quality v12.0</title>
-    <!-- Google Fonts -->
+    <title>DISER SAS - ERP Gestión v14.0</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="styles.css">
@@ -15,18 +14,21 @@
         <!-- Sidebar -->
         <aside class="sidebar">
             <div class="sidebar-header">
-                <div class="logo"><i class="fa-solid fa-gem"></i> <span>DISER v12</span></div>
+                <div class="logo"><i class="fa-solid fa-gem"></i> <span>DISER v14</span></div>
             </div>
             <nav class="sidebar-nav">
                 <ul>
+                    <li class="section-label">VISUALIZACIÓN</li>
                     <li class="active" id="nav-operative"><a href="#" onclick="switchView('operative')"><i class="fa-solid fa-shuttle-van"></i> Tablero Logístico</a></li>
                     <li id="nav-financial"><a href="#" onclick="switchView('financial')"><i class="fa-solid fa-wallet"></i> Análisis Financiero</a></li>
                     <li id="nav-yoy"><a href="#" onclick="switchView('yoy')"><i class="fa-solid fa-code-compare"></i> Comparativa YoY</a></li>
                     <li id="nav-list"><a href="#" onclick="switchView('list')"><i class="fa-solid fa-table-list"></i> Base Maestra</a></li>
+                    <li class="section-label mt-4">GESTIÓN ACTIVA</li>
+                    <li id="nav-planning"><a href="#" onclick="switchView('planning')"><i class="fa-solid fa-calendar-check"></i> Planificación</a></li>
                 </ul>
                 <div class="sidebar-footer">
                     <button class="btn-sync" id="refreshBtn" onclick="loadData()"><i class="fa-solid fa-rotate"></i> Sincronizar Base</button>
-                    <p class="source-hint">Fuente: Base Importaciones</p>
+                    <p class="source-hint">Fuente: DBSheets Diser</p>
                 </div>
             </nav>
         </aside>
@@ -37,49 +39,41 @@
                 <div class="global-filters">
                     <div class="filter-row main-search">
                         <i class="fa-solid fa-search"></i>
-                        <input type="text" id="globalSearch" placeholder="Buscar folio, proveedor, mercadería..." oninput="applyAllFilters()">
+                        <!-- Unificamos búsqueda global -->
+                        <input type="text" id="globalSearch" placeholder="Buscar por cualquier texto..." oninput="applyDispatchFilters()">
                     </div>
-                    <!-- Custom Multi-Select Filters v12.0 -->
+                    
+                    <!-- Filtros Vista Importaciones (Operativa) -->
                     <div class="filter-grid" id="advanceFilters">
-                        <div class="ms-wrapper" id="msw-fYear">
-                            <div class="ms-header" onclick="toggleMS('fYear')">Año <i class="fas fa-chevron-down"></i></div>
-                            <div class="ms-dropdown" id="msd-fYear"></div>
-                        </div>
-                        <div class="ms-wrapper" id="msw-fMonth">
-                            <div class="ms-header" onclick="toggleMS('fMonth')">Mes <i class="fas fa-chevron-down"></i></div>
-                            <div class="ms-dropdown" id="msd-fMonth"></div>
-                        </div>
-                        <div class="ms-wrapper" id="msw-fProvider">
-                            <div class="ms-header" onclick="toggleMS('fProvider')">Proveedor <i class="fas fa-chevron-down"></i></div>
-                            <div class="ms-dropdown" id="msd-fProvider"></div>
-                        </div>
-                        <div class="ms-wrapper" id="msw-fState">
-                            <div class="ms-header" onclick="toggleMS('fState')">Estado <i class="fas fa-chevron-down"></i></div>
-                            <div class="ms-dropdown" id="msd-fState"></div>
-                        </div>
-                        <div class="ms-wrapper" id="msw-fLine">
-                            <div class="ms-header" onclick="toggleMS('fLine')">Línea <i class="fas fa-chevron-down"></i></div>
-                            <div class="ms-dropdown" id="msd-fLine"></div>
-                        </div>
-                        <div class="ms-wrapper" id="msw-fCat">
-                            <div class="ms-header" onclick="toggleMS('fCat')">Categoría <i class="fas fa-chevron-down"></i></div>
-                            <div class="ms-dropdown" id="msd-fCat"></div>
-                        </div>
-                        <div class="ms-wrapper" id="msw-fProd">
-                            <div class="ms-header" onclick="toggleMS('fProd')">Producto <i class="fas fa-chevron-down"></i></div>
-                            <div class="ms-dropdown" id="msd-fProd"></div>
-                        </div>
+                        <div class="ms-wrapper" id="msw-fYear"><div class="ms-header" onclick="toggleMS('fYear')">Año <i class="fas fa-chevron-down"></i></div><div class="ms-dropdown" id="msd-fYear"></div></div>
+                        <div class="ms-wrapper" id="msw-fMonth"><div class="ms-header" onclick="toggleMS('fMonth')">Mes <i class="fas fa-chevron-down"></i></div><div class="ms-dropdown" id="msd-fMonth"></div></div>
+                        <div class="ms-wrapper" id="msw-fProvider"><div class="ms-header" onclick="toggleMS('fProvider')">Proveedor <i class="fas fa-chevron-down"></i></div><div class="ms-dropdown" id="msd-fProvider"></div></div>
+                        <div class="ms-wrapper" id="msw-fState"><div class="ms-header" onclick="toggleMS('fState')">Estado <i class="fas fa-chevron-down"></i></div><div class="ms-dropdown" id="msd-fState"></div></div>
+                        <div class="ms-wrapper" id="msw-fLine"><div class="ms-header" onclick="toggleMS('fLine')">Línea <i class="fas fa-chevron-down"></i></div><div class="ms-dropdown" id="msd-fLine"></div></div>
+                        <div class="ms-wrapper" id="msw-fCat"><div class="ms-header" onclick="toggleMS('fCat')">Categoría <i class="fas fa-chevron-down"></i></div><div class="ms-dropdown" id="msd-fCat"></div></div>
+                        <div class="ms-wrapper" id="msw-fProd"><div class="ms-header" onclick="toggleMS('fProd')">Producto <i class="fas fa-chevron-down"></i></div><div class="ms-dropdown" id="msd-fProd"></div></div>
+                    </div>
+
+                    <!-- Filtros Vista Planificación v14 -->
+                    <div class="filter-grid hidden" id="planFilters">
+                        <div class="ms-wrapper" id="msw-pPrio"><div class="ms-header" onclick="toggleMS('pPrio')">Prioridad <i class="fas fa-chevron-down"></i></div><div class="ms-dropdown" id="msd-pPrio"></div></div>
+                        <div class="ms-wrapper" id="msw-pProv"><div class="ms-header" onclick="toggleMS('pProv')">Proveedor <i class="fas fa-chevron-down"></i></div><div class="ms-dropdown" id="msd-pProv"></div></div>
+                        <div class="ms-wrapper" id="msw-pPed"><div class="ms-header" onclick="toggleMS('pPed')">Pedido <i class="fas fa-chevron-down"></i></div><div class="ms-dropdown" id="msd-pPed"></div></div>
+                        <div class="ms-wrapper" id="msw-pCot"><div class="ms-header" onclick="toggleMS('pCot')">Cotización <i class="fas fa-chevron-down"></i></div><div class="ms-dropdown" id="msd-pCot"></div></div>
+                        <div class="ms-wrapper" id="msw-pImp"><div class="ms-header" onclick="toggleMS('pImp')">Impo <i class="fas fa-chevron-down"></i></div><div class="ms-dropdown" id="msd-pImp"></div></div>
+                        <div class="ms-wrapper" id="msw-pBan"><div class="ms-header" onclick="toggleMS('pBan')">Banco <i class="fas fa-chevron-down"></i></div><div class="ms-dropdown" id="msd-pBan"></div></div>
+                        <div class="ms-wrapper" id="msw-pApr"><div class="ms-header" onclick="toggleMS('pApr')">Aprobación <i class="fas fa-chevron-down"></i></div><div class="ms-dropdown" id="msd-pApr"></div></div>
+                        <div class="ms-wrapper" id="msw-pRes"><div class="ms-header" onclick="toggleMS('pRes')">Responsable <i class="fas fa-chevron-down"></i></div><div class="ms-dropdown" id="msd-pRes"></div></div>
                     </div>
                 </div>
             </header>
 
-            <!-- VISTA: LOGÍSTICA (Cerebro Operativo) -->
+            <!-- VISTA: LOGÍSTICA -->
             <div id="view-operative" class="view-section active">
                 <div class="section-title">
                     <h1>Tablero Logístico</h1>
-                    <p>Estados interactivos y calendario de arribos (ETA).</p>
+                    <p>Alertas interactivas y calendario de arribos (ETA).</p>
                 </div>
-
                 <div class="dashboard-kpis interactive">
                     <div class="kpi-card" onclick="quickFilterStatus('Producción')">
                         <label>Producción</label>
@@ -102,7 +96,6 @@
                         <span id="fob-deposito">USD 0</span>
                     </div>
                 </div>
-
                 <div class="logistic-grid">
                     <div class="panel-card calendar-panel relative">
                         <div class="panel-header">
@@ -114,8 +107,6 @@
                             </div>
                         </div>
                         <div id="arrivalCalendar" class="calendar-grid"></div>
-                        
-                        <!-- Tooltip Container v12.0 -->
                         <div id="calTooltip" class="cal-tooltip"></div>
                     </div>
                     <div class="panel-card mini-list">
@@ -125,13 +116,12 @@
                 </div>
             </div>
 
-            <!-- VISTA: FINANZAS (Cerebro Financiero) -->
+            <!-- VISTA: FINANZAS -->
             <div id="view-financial" class="view-section">
                 <div class="section-title">
                     <h1>Análisis Financiero</h1>
                     <p>KPIs ejecutivos basados en los cruces de filtros activos.</p>
                 </div>
-
                 <div class="dashboard-kpis financial-v11">
                     <div class="kpi-card gradient-blue">
                         <label>FOB TOTAL (FILTRADO)</label>
@@ -150,7 +140,6 @@
                         <h2 id="fin-ticket-avg">USD 0</h2>
                     </div>
                 </div>
-
                 <div class="financial-charts-v11">
                     <div class="panel-card"><canvas id="chartMonthsBuy"></canvas></div>
                     <div class="panel-card"><canvas id="chartSenaBalance"></canvas></div>
@@ -163,46 +152,38 @@
 
             <!-- VISTA: COMPARATIVA YoY -->
             <div id="view-yoy" class="view-section">
+                <!-- content unchanged -->
                 <div class="section-title">
                     <h1>Comparativa Año contra Año (YoY)</h1>
                     <p>Analice el rendimiento histórico por categorías y líneas.</p>
                 </div>
+                <!-- Controls and canvas -->
                 <div class="yoy-controls panel-card">
-                    <div class="control-group">
-                        <label>Agrupar por:</label>
-                        <select id="yoyGroup" onchange="renderYoY()">
-                            <option value="categoria">Categoría</option>
-                            <option value="linea">Línea</option>
-                            <option value="producto">Producto</option>
-                        </select>
-                    </div>
-                    <div class="control-group">
-                        <label>Año A:</label>
-                        <select id="yoyYearA" class="form-select" onchange="renderYoY()"></select>
-                    </div>
-                    <div class="control-group">
-                        <label>Año B:</label>
-                        <select id="yoyYearB" class="form-select" onchange="renderYoY()"></select>
-                    </div>
+                    <div class="control-group"><label>Agrupar por:</label><select id="yoyGroup" onchange="renderYoY()"><option value="categoria">Categoría</option></select></div>
+                    <div class="control-group"><label>Año A:</label><select id="yoyYearA" class="form-select" onchange="renderYoY()"></select></div>
+                    <div class="control-group"><label>Año B:</label><select id="yoyYearB" class="form-select" onchange="renderYoY()"></select></div>
                 </div>
-                <div class="panel-card yoy-chart-container">
-                    <canvas id="chartYoY"></canvas>
-                </div>
+                <div class="panel-card yoy-chart-container"><canvas id="chartYoY"></canvas></div>
             </div>
 
             <!-- VISTA: LISTA MAESTRA -->
             <div id="view-list" class="view-section">
+                <div id="executiveSummary" class="executive-summary mb-4 hidden">
+                    <div class="es-stat"><span>Resultados</span><h3 id="es-count">0 Folios</h3></div>
+                    <div class="es-stat"><span>Valuación Universo</span><h3 id="es-fob" class="text-primary">USD 0</h3></div>
+                    <div class="es-stat"><span>Peligro / Vencidos</span><h3 id="es-alert" class="text-danger">0</h3></div>
+                    <div class="es-stat"><span>ETA Próximos</span><h3 id="es-soon" class="text-warning">0</h3></div>
+                </div>
+
                 <div class="table-container v11">
                     <div class="table-header-v11">
                         <h2>Base Maestra de Folios</h2>
-                        <div class="table-actions">
-                            <span id="activeFiltersBadge" class="badge-filter">Mostrando Todo</span>
-                        </div>
                     </div>
                     <div class="scroll-table">
                         <table id="masterTable">
                             <thead>
                                 <tr>
+                                    <th>Status</th>
                                     <th onclick="setSort('folio')">Folio <i class="fas fa-sort"></i></th>
                                     <th onclick="setSort('proveedor')">Proveedor <i class="fas fa-sort"></i></th>
                                     <th onclick="setSort('mercaderia')">Mercadería <i class="fas fa-sort"></i></th>
@@ -218,25 +199,59 @@
                     </div>
                 </div>
             </div>
+
+            <!-- VISTA: PLANIFICACIÓN DE IMPORTACIONES v14.0 -->
+            <div id="view-planning" class="view-section">
+                <div class="section-title" style="display:flex; justify-content:space-between; align-items:flex-end;">
+                    <div>
+                        <h1>Planificación de Importaciones</h1>
+                        <p>Gestión activa de negociaciones conectada 1 a 1 con la Database Base Sheets.</p>
+                    </div>
+                    <button class="btn-primary" onclick="openPlanModal()"><i class="fa-solid fa-plus"></i> Nueva Planificación</button>
+                </div>
+                
+                <div class="table-container">
+                    <div class="scroll-table">
+                        <table class="planning-table" id="planningTable">
+                            <thead>
+                                <tr>
+                                    <th>Prioridad</th>
+                                    <th>Proveedor</th>
+                                    <th>Descripción</th>
+                                    <th>Pedido</th>
+                                    <th>Cotización</th>
+                                    <th>Impo</th>
+                                    <th>Aprobación</th>
+                                    <th>Banco</th>
+                                    <th>Responsable</th>
+                                    <th>Folio</th>
+                                    <th>Acción</th>
+                                </tr>
+                            </thead>
+                            <tbody id="planningBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
         </main>
     </div>
 
-    <!-- Modal: Ficha Técnica v11 -->
+    <!-- Modal: Ficha Técnica ERP -->
     <div class="modal-overlay" id="folioModal">
         <div class="modal-content xl">
             <div class="modal-header">
                 <div class="modal-title-stack">
+                    <div id="modalStatusDot" class="status-dot"></div>
                     <h2 id="modalFolio">Folio #000</h2>
                     <span id="modalBadge" class="badge">ESTADO</span>
                 </div>
-                
-                <!-- Action Buttons Container v12.0 -->
-                <div class="modal-actions" id="modalActions">
-                   <!-- Botón inyectado dinámicamente -->
-                </div>
-
-                <button class="btn-close" onclick="closeModal()">×</button>
+                <div class="modal-actions" id="modalActions"></div>
+                <button class="btn-close" onclick="closeModal('folioModal')">×</button>
             </div>
+            
+            <div class="workflow-container" id="workflowTimeline"></div>
+
             <div class="modal-body v11">
                 <div class="ficha-tabs">
                     <div class="ficha-column">
@@ -251,6 +266,81 @@
             </div>
         </div>
     </div>
+
+    <!-- Modal: Planificación de Importación (Edición) v14.0 -->
+    <div class="modal-overlay" id="planModal">
+        <div class="modal-content md">
+            <div class="modal-header">
+                <h2 id="planModalTitle">Editar Planificación</h2>
+                <button class="btn-close" onclick="closeModal('planModal')">×</button>
+            </div>
+            <div class="modal-body p-form">
+                <input type="hidden" id="pf-id">
+                
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Prioridad</label>
+                        <select id="pf-prioridad" class="form-select">
+                            <option value="1. Urgente">1. Urgente</option>
+                            <option value="2. Alta">2. Alta</option>
+                            <option value="3. Media">3. Media</option>
+                            <option value="4. Baja">4. Baja</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Responsable</label>
+                        <input type="text" id="pf-responsable" placeholder="Ej: Mauricio">
+                    </div>
+                    <div class="form-group">
+                        <label>Proveedor / Fábrica</label>
+                        <input type="text" id="pf-proveedor" placeholder="Nombre Proveedor">
+                    </div>
+                    <div class="form-group">
+                        <label>Folio Relacionado</label>
+                        <input type="text" id="pf-folio" placeholder="Vincular a importación real...">
+                    </div>
+                    <div class="form-group full-width">
+                        <label>Descripción / Mercadería</label>
+                        <input type="text" id="pf-descripcion" placeholder="Ej: Consolidado Camperas Otoño">
+                    </div>
+                </div>
+
+                <h3 class="form-subtitle">Seguimiento de Etapas</h3>
+                <div class="form-grid chips-grid">
+                    <div class="form-group"><label>Pedido</label><select id="pf-pedido" class="form-select state-sel"><option>Pendiente</option><option>En proceso</option><option>Completado</option><option>Postpuesto</option></select></div>
+                    <div class="form-group"><label>Cotización</label><select id="pf-cotizacion" class="form-select state-sel"><option>Pendiente</option><option>En proceso</option><option>Completado</option></select></div>
+                    <div class="form-group"><label>Impo</label><select id="pf-impo" class="form-select state-sel"><option>Pendiente</option><option>En proceso</option><option>Completado</option></select></div>
+                    <div class="form-group"><label>Banco (Pagos)</label><select id="pf-banco" class="form-select state-sel"><option>Pendiente</option><option>En proceso</option><option>Completado</option></select></div>
+                    <div class="form-group"><label>Aprobación</label><select id="pf-aprobacion" class="form-select state-sel"><option>Pendiente</option><option>Aprobado</option><option>Rechazado</option></select></div>
+                </div>
+
+                <div class="form-group full-width mt-3">
+                    <label>Comentarios y Notas Libres</label>
+                    <textarea id="pf-comentarios" rows="3" placeholder="Añade observaciones del proceso..."></textarea>
+                </div>
+                
+                <div class="form-actions mt-4" style="display:flex; justify-content:space-between; align-items:center;">
+                    <button class="btn-danger-outline" id="btnDeletePlan" onclick="deletePlan()"><i class="fa-solid fa-trash"></i> Eliminar Registro</button>
+                    <div style="display:flex; flex-direction:column; align-items:flex-end;">
+                        <button class="btn-primary" id="btnSavePlan" onclick="savePlan()"><i class="fa-solid fa-cloud-arrow-up"></i> Guardar Cambios</button>
+                        <p id="planSaveStatus" style="font-size: 0.8rem; margin-top:8px; color:var(--text-muted);"></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Link Folio Relacionado Interaction style inject -->
+    <style>
+        .hidden { display: none !important; }
+        .btn-danger-outline { background: transparent; color: var(--danger); border: 1px solid var(--danger); padding: 10px 16px; border-radius: 8px; cursor:pointer; font-weight: 600; font-family:'Inter'; transition:0.2s;}
+        .btn-danger-outline:hover { background: var(--danger); color: white; }
+        .folio-link { color: var(--primary); font-weight: 700; cursor: pointer; text-decoration: underline; }
+        .folio-link:hover { color: var(--primary-dark); }
+        .planning-state[data-val="Pendiente"], .planning-state[data-val="Rechazado"] { background: rgba(239, 68, 68, 0.1); color: var(--danger); border-color: rgba(239, 68, 68, 0.3); }
+        .planning-state[data-val="En proceso"] { background: rgba(245, 158, 11, 0.1); color: var(--warning); border-color: rgba(245, 158, 11, 0.3); }
+        .planning-state[data-val="Completado"], .planning-state[data-val="Aprobado"] { background: rgba(16, 185, 129, 0.1); color: var(--success); border-color: rgba(16, 185, 129, 0.3); }
+    </style>
 
     <script src="app.js"></script>
 </body>
