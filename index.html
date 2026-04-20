@@ -68,6 +68,15 @@
                 </div>
             </header>
 
+            <!-- EXECUTIVE GLOBAL SUMMARY -->
+            <div id="executiveSummary" class="executive-summary mb-4 hidden" style="margin: 0 24px;">
+                <div class="es-stat"><span>Resultados</span><h3 id="es-count">0 Folios</h3></div>
+                <div class="es-stat"><span>Valuación Universo</span><h3 id="es-fob" class="text-primary">USD 0</h3></div>
+                <div class="es-stat"><span>Peligro / Vencidos</span><h3 id="es-alert" class="text-danger">0</h3></div>
+                <div class="es-stat"><span>ETA Próximos</span><h3 id="es-soon" class="text-warning">0</h3></div>
+                <div class="es-stat"><span>Cargas Críticas</span><h3 id="es-prio" style="color: var(--danger)">0</h3></div>
+            </div>
+
             <!-- VISTA: LOGÍSTICA -->
             <div id="view-operative" class="view-section active">
                 <div class="section-title">
@@ -168,13 +177,6 @@
 
             <!-- VISTA: LISTA MAESTRA -->
             <div id="view-list" class="view-section">
-                <div id="executiveSummary" class="executive-summary mb-4 hidden">
-                    <div class="es-stat"><span>Resultados</span><h3 id="es-count">0 Folios</h3></div>
-                    <div class="es-stat"><span>Valuación Universo</span><h3 id="es-fob" class="text-primary">USD 0</h3></div>
-                    <div class="es-stat"><span>Peligro / Vencidos</span><h3 id="es-alert" class="text-danger">0</h3></div>
-                    <div class="es-stat"><span>ETA Próximos</span><h3 id="es-soon" class="text-warning">0</h3></div>
-                </div>
-
                 <div class="table-container v11">
                     <div class="table-header-v11">
                         <h2>Base Maestra de Folios</h2>
@@ -188,10 +190,12 @@
                                     <th onclick="setSort('proveedor')">Proveedor <i class="fas fa-sort"></i></th>
                                     <th onclick="setSort('mercaderia')">Mercadería <i class="fas fa-sort"></i></th>
                                     <th onclick="setSort('estado')">Estado <i class="fas fa-sort"></i></th>
+                                    <th onclick="setSort('prioridad')">Prioridad <i class="fas fa-sort"></i></th>
                                     <th onclick="setSort('fecha_compra')">Confirmación <i class="fas fa-sort"></i></th>
                                     <th onclick="setSort('etd')">ETD <i class="fas fa-sort"></i></th>
                                     <th onclick="setSort('eta')">ETA <i class="fas fa-sort"></i></th>
                                     <th onclick="setSort('fob')" class="text-right">FOB <i class="fas fa-sort"></i></th>
+                                    <th>Drive</th>
                                 </tr>
                             </thead>
                             <tbody id="tableBody"></tbody>

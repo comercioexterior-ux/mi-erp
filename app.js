@@ -52,9 +52,10 @@ async function loadData() {
             if(dateETA && !isNaN(dateETA.getTime())) {
                 daysToETA = (dateETA - today) / (1000 * 60 * 60 * 24);
                 if (daysToETA < 0 && f.estado !== 'Depósito') semaforo = "rojo"; 
-                else if (daysToETA >= 0 && daysToETA <= 10 && f.estado !== 'Depósito') semaforo = "amarillo"; 
+                else if (daysToETA >= 0 && daysToETA <= 15 && f.estado !== 'Depósito') semaforo = "amarillo"; 
             }
-            if(!f.adjunto && daysToETA !== null && daysToETA <= 15 && f.estado !== 'Depósito') semaforo = "rojo"; 
+            if(!f.adjunto && f.estado !== 'Depósito' && f.estado !== 'Pendiente') semaforo = "rojo"; 
+            if(f.prioridad && f.prioridad.includes("1.") && f.estado !== 'Depósito') semaforo = "rojo";
 
             // Hard validation to ensure numbers are numbers securely before charting
             return { 
@@ -220,13 +221,14 @@ function updateKPIs() {
     const states = { 'Producción': 0, 'Tránsito': 0, 'Aduana': 0, 'Depósito': 0 };
     const fobs = { 'Producción': 0, 'Tránsito': 0, 'Aduana': 0, 'Depósito': 0 };
     let totalFob = 0, totalSena = 0, totalBal = 0;
-    let countAlerts = 0, countSoon = 0;
+    let countAlerts = 0, countSoon = 0, countPrio = 0;
 
     filteredData.forEach(f => {
         if(states[f.estado] !== undefined) { states[f.estado]++; fobs[f.estado] += f.fob; }
         totalFob += f.fob; totalSena += f.sena_usd; totalBal += f.balance_usd;
         if(f._semaforo === 'rojo') countAlerts++;
         if(f._semaforo === 'amarillo') countSoon++;
+        if(f.prioridad && (f.prioridad.includes("1.") || f.prioridad.includes("2."))) countPrio++;
     });
 
     for(let s in states) {
@@ -245,6 +247,7 @@ function updateKPIs() {
     setVal('es-fob', `USD ${totalFob.toLocaleString()}`);
     setVal('es-alert', countAlerts);
     setVal('es-soon', countSoon);
+    setVal('es-prio', countPrio);
 }
 
 function renderMasterTable() {
@@ -267,10 +270,12 @@ function renderMasterTable() {
             <td>${f.proveedor}</td>
             <td class="text-truncate">${f.mercaderia}</td>
             <td><span class="badge status-${f.estado.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")}">${f.estado}</span></td>
+            <td><span class="prio-badge" data-val="${f.prioridad}">${f.prioridad}</span></td>
             <td>${f.fecha_compra}</td>
             <td>${f.etd}</td>
             <td>${f.eta}</td>
             <td class="text-right">USD ${f.fob.toLocaleString()}</td>
+            <td onclick="event.stopPropagation()">${f.adjunto && f.adjunto.startsWith('http') ? `<a href="${f.adjunto}" target="_blank" class="btn-primary-sm btn-primary" title="Drive"><i class="fa-solid fa-link"></i></a>` : '-'}</td>
         </tr>
     `).join('');
 }
@@ -311,13 +316,22 @@ function renderCalendar() {
         const el = document.createElement('div');
         el.className = `cal-day ${dayFolios.length > 0 ? 'has-data' : ''}`;
         
-        let redDots = dayFolios.filter(f => f._semaforo === 'rojo').length;
         let pHTML = `<span>${d}</span>`;
         if(dayFolios.length > 0) {
-            pHTML += `<div class="day-count">${redDots > 0 ? `<i class="fa-solid fa-circle" style="color:var(--danger)"></i> ` : ''}${dayFolios.length} Arr.</div>`;
-            el.onclick = () => openFolio(dayFolios[0].folio);
-            el.onmouseenter = (e) => { clearTimeout(tooltipTimeout); showTooltip(e, dayFolios); };
-            el.onmouseleave = () => { tooltipTimeout = setTimeout(hideTooltip, 100); };
+            pHTML += `<div class="cal-cards-container">`;
+            dayFolios.forEach(f => {
+                pHTML += `
+                    <div class="cal-mini-card status-border-${f._semaforo}" onclick="openFolio('${f.folio}')" title="${f.proveedor}: ${f.mercaderia}">
+                        <div class="cmc-head">
+                            <b>#${f.folio}</b>
+                            ${f.adjunto && f.adjunto.startsWith('http') ? `<a href="${f.adjunto}" target="_blank" onclick="event.stopPropagation()"><i class="fa-solid fa-folder-open" style="color:var(--primary)"></i></a>` : ''}
+                        </div>
+                        <div class="cmc-prov">${f.proveedor}</div>
+                        <div class="cmc-merca">${f.mercaderia}</div>
+                    </div>
+                `;
+            });
+            pHTML += `</div>`;
         }
         el.innerHTML = pHTML;
         container.appendChild(el);
@@ -494,21 +508,41 @@ function openFolio(id) {
 
     const wC = document.getElementById('workflowTimeline');
     if(wC) {
-        const wf = [
-            { label: 'Cotización', check: true, icon: 'fa-file-invoice' },
-            { label: 'Pedido', check: f.fecha_compra !== '', icon: 'fa-cart-shopping' },
-            { label: 'Producción', check: f.estado !== 'Pendiente', icon: 'fa-gears' },
-            { label: 'Embarcado', check: f.estado !== 'Producción' && f.estado !== 'Pendiente', icon: 'fa-ship' },
-            { label: 'Arribado', check: f.estado === 'Aduana' || f.estado === 'Depósito', icon: 'fa-anchor' },
-            { label: 'Ingreso', check: f.estado === 'Depósito', icon: 'fa-warehouse' }
-        ];
-        
-        wC.innerHTML = wf.map(w => `
-            <div class="wf-step ${w.check ? 'active' : ''}">
-                <div class="wf-icon"><i class="fa-solid ${w.icon}"></i></div>
-                <div class="wf-label">${w.label}</div>
-            </div>
-        `).join('');
+        // DETECTAR SI ESTE FOLIO TIENE UNA PLANIFICACIÓN VINCULADA PARA VER SU CHECKLIST
+        const plan = planData.find(p => p.folioLinked && p.folioLinked.toString() === f.folio.toString());
+
+        if (plan) {
+            const checkIcon = (status) => status === 'Completado' || status === 'Aprobado' ? 'fa-check' : (status === 'Pendiente' ? 'fa-hourglass-start' : (status === 'Rechazado' ? 'fa-times' : 'fa-spinner fa-spin'));
+            const checkClass = (status) => status === 'Completado' || status === 'Aprobado' ? 'active' : (status === 'En proceso' ? 'processing' : (status === 'Rechazado' ? 'rejected' : ''));
+            
+            wC.innerHTML = `
+                <div class="wf-step ${checkClass(plan.pedido)}"><div class="wf-icon"><i class="fa-solid ${checkIcon(plan.pedido)}"></i></div><div class="wf-label">Pedido</div></div>
+                <div class="wf-step ${checkClass(plan.cotizacion)}"><div class="wf-icon"><i class="fa-solid ${checkIcon(plan.cotizacion)}"></i></div><div class="wf-label">Cotización</div></div>
+                <div class="wf-step ${checkClass(plan.impo)}"><div class="wf-icon"><i class="fa-solid ${checkIcon(plan.impo)}"></i></div><div class="wf-label">Impo</div></div>
+                <div class="wf-step ${checkClass(plan.banco)}"><div class="wf-icon"><i class="fa-solid ${checkIcon(plan.banco)}"></i></div><div class="wf-label">Banco</div></div>
+                <div class="wf-step ${checkClass(plan.aprobacion)}"><div class="wf-icon"><i class="fa-solid ${checkIcon(plan.aprobacion)}"></i></div><div class="wf-label">Aprobación</div></div>
+            `;
+            if(plan.comentarios) {
+                wC.innerHTML += `<div style="width:100%; font-size:0.85rem; padding: 10px; background: rgba(59, 130, 246, 0.1); color: var(--primary-dark); border-radius: 8px; margin-top: 15px;"><i class="fa-solid fa-note-sticky"></i> <b>Nota Operativa: </b> ${plan.comentarios}</div>`;
+            }
+        } else {
+            // Default logistic workflow
+            const wf = [
+                { label: 'Cotización', check: true, icon: 'fa-file-invoice' },
+                { label: 'Pedido', check: f.fecha_compra !== '', icon: 'fa-cart-shopping' },
+                { label: 'Producción', check: f.estado !== 'Pendiente', icon: 'fa-gears' },
+                { label: 'Embarcado', check: f.estado !== 'Producción' && f.estado !== 'Pendiente', icon: 'fa-ship' },
+                { label: 'Arribado', check: f.estado === 'Aduana' || f.estado === 'Depósito', icon: 'fa-anchor' },
+                { label: 'Ingreso', check: f.estado === 'Depósito', icon: 'fa-warehouse' }
+            ];
+            
+            wC.innerHTML = wf.map(w => `
+                <div class="wf-step ${w.check ? 'active' : ''}">
+                    <div class="wf-icon"><i class="fa-solid ${w.icon}"></i></div>
+                    <div class="wf-label">${w.label}</div>
+                </div>
+            `).join('');
+        }
     }
 
     document.getElementById('opDetails').innerHTML = `
