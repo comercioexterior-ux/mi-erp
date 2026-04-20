@@ -1,12 +1,12 @@
 /**
- * ERP IMPORTACIONES DISER SAS - Master Orchestrator v14.0
+ * ERP IMPORTACIONES DISER SAS - Master Orchestrator (Data Pipeline Refactored)
  */
 
-const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyMWphyqEAlvsQbYYaqeADerPVE-6chBEXK1P2Ku_kth1FJUAzuc5dITiU96owIJ13X/exec';
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyLYQsV9w1XFwrpumDSMdg1PkfBcawNDgRYWvZHIqv-1BYxkvWUKAsWeMJwlpgxDgHw/exec';
 let rawData = [];
 let filteredData = [];
 let planData = []; 
-let filteredPlanData = []; // v14
+let filteredPlanData = []; 
 let charts = {};
 let currentView = 'operative';
 let sortConfig = { key: 'folio', dir: 'desc' };
@@ -14,7 +14,6 @@ let calendarDate = new Date();
 
 let selectedFilters = {
     fYear: [], fMonth: [], fProvider: [], fState: [], fLine: [], fCat: [], fProd: [],
-    // Plan Filters v14
     pPrio: [], pProv: [], pPed: [], pCot: [], pImp: [], pBan: [], pApr: [], pRes: []
 };
 
@@ -34,6 +33,7 @@ async function loadData() {
     try {
         const response = await fetch(`${SCRIPT_URL}?sync=true`);
         const result = await response.json();
+        
         if (result.error) throw new Error(result.error);
 
         const arrImp = result.importaciones || [];
@@ -49,24 +49,50 @@ async function loadData() {
             
             let semaforo = "verde";
             let daysToETA = null;
-            if(dateETA) {
+            if(dateETA && !isNaN(dateETA.getTime())) {
                 daysToETA = (dateETA - today) / (1000 * 60 * 60 * 24);
                 if (daysToETA < 0 && f.estado !== 'Depósito') semaforo = "rojo"; 
                 else if (daysToETA >= 0 && daysToETA <= 10 && f.estado !== 'Depósito') semaforo = "amarillo"; 
             }
             if(!f.adjunto && daysToETA !== null && daysToETA <= 15 && f.estado !== 'Depósito') semaforo = "rojo"; 
 
-            return { ...f, _dateCompra: dateC, _dateETD: dateETD, _dateETA: dateETA, _semaforo: semaforo };
+            // Hard validation to ensure numbers are numbers securely before charting
+            return { 
+                ...f, 
+                _dateCompra: dateC, 
+                _dateETD: dateETD, 
+                _dateETA: dateETA, 
+                _semaforo: semaforo,
+                fob: parseFloat(f.fob) || 0,
+                sena_usd: parseFloat(f.sena_usd) || 0,
+                balance_usd: parseFloat(f.balance_usd) || 0,
+                despacho_uyu: parseFloat(f.despacho_uyu) || 0
+            };
         });
         
+        // ============================================
+        // LOG DE DIAGNÓSTICO (TAREA 8)
+        // ============================================
+        console.log(`%c[DIAGNÓSTICO DEL PIPELINE - DISER ERP]`, "color: #10b981; font-size: 14px; font-weight: bold;");
+        console.log(`✅ Base Importaciones extraída (GSheets): ${result.count || arrImp.length} registros brutos.`);
+        console.log(`✅ Folios válidos limpios (Frontend): ${rawData.length} procesados sin perder registros.`);
+        console.log(`Status del Endpoint: ${result.sys_status}`);
+        if(rawData.length > 0) {
+            console.log("Muestra del Dataset Normalizado:");
+            console.table(rawData.slice(0, 3)); 
+        } else {
+            console.warn("⚠️ ALERTA: No se leyeron folios, revisa el index del script de columnas en GSheets.");
+        }
+        // ============================================
+
         populateFilterOptions();
-        applyAllFilters(); // Applies to BOTH operative and planning
+        applyAllFilters(); 
         
         if (result.sys_status === "NO_PLAN_SHEET") console.warn("Hoja 'Planificación' ausente.");
 
     } catch (err) {
-        console.error("Sync Error:", err);
-        alert("Error de conexión. Verifique App Script o conexión a internet.");
+        console.error("Sync Error Pipeline:", err);
+        alert("Fallo Estructural. Verifique Console (F12) o su conexión / permisos del App Script.");
     } finally {
         if(btn) { btn.innerHTML = '<i class="fa-solid fa-rotate"></i> Sincronizar Base'; btn.disabled = false; }
     }
@@ -106,7 +132,7 @@ function populateFilterOptions() {
     fillMultiSelect('fProd', [...new Set(rawData.map(f => f.producto))].filter(Boolean).sort().map(p => ({ val:p, text:p })));
     fillMultiSelect('fState', ['Producción', 'Tránsito', 'Aduana', 'Depósito'].map(s => ({ val:s, text:s })));
 
-    // Planning v14
+    // Planning
     fillMultiSelect('pPrio', ['1. Urgente', '2. Alta', '3. Media', '4. Baja'].map(s => ({ val:s, text:s })));
     fillMultiSelect('pProv', [...new Set(planData.map(f => f.proveedor))].filter(Boolean).sort().map(p => ({ val:p, text:p })));
     fillMultiSelect('pPed', [...new Set(planData.map(f => f.pedido))].filter(Boolean).sort().map(s => ({ val:s, text:s })));
@@ -137,11 +163,12 @@ function fillSelectSimple(id, list) {
 function applyAllFilters() {
     const search = document.getElementById('globalSearch').value.toLowerCase();
     
-    // 1. Filtrado de Base Maestra
+    // 1. Filtrado Operativa
     filteredData = rawData.filter(f => {
-        const mSearch = !search || f.folio.includes(search) || f.proveedor.toLowerCase().includes(search) || f.mercaderia.toLowerCase().includes(search);
-        const mYear = selectedFilters.fYear.length === 0 || (f.fecha_compra && selectedFilters.fYear.includes(f.fecha_compra.split('/')[2]));
-        const mMonth = selectedFilters.fMonth.length === 0 || (f.fecha_compra && selectedFilters.fMonth.includes(f.fecha_compra.split('/')[1]));
+        const folioStr = f.folio ? f.folio.toString().toLowerCase() : "";
+        const mSearch = !search || folioStr.includes(search) || (f.proveedor||"").toLowerCase().includes(search) || (f.mercaderia||"").toLowerCase().includes(search);
+        const mYear = selectedFilters.fYear.length === 0 || (f.fecha_compra && f.fecha_compra.includes('/') && selectedFilters.fYear.includes(f.fecha_compra.split('/')[2]));
+        const mMonth = selectedFilters.fMonth.length === 0 || (f.fecha_compra && f.fecha_compra.includes('/') && selectedFilters.fMonth.includes(f.fecha_compra.split('/')[1]));
         const mProv = selectedFilters.fProvider.length === 0 || selectedFilters.fProvider.includes(f.proveedor);
         const mState = selectedFilters.fState.length === 0 || selectedFilters.fState.includes(f.estado);
         const mLine = selectedFilters.fLine.length === 0 || selectedFilters.fLine.includes(f.linea);
@@ -150,9 +177,10 @@ function applyAllFilters() {
         return mSearch && mYear && mMonth && mProv && mState && mLine && mCat && mProd;
     });
 
-    // 2. Filtrado de Planificación (v14)
+    // 2. Filtrado Planificación
     filteredPlanData = planData.filter(p => {
-        const mSearch = !search || p.proveedor.toLowerCase().includes(search) || p.descripcion.toLowerCase().includes(search) || p.folioLinked.includes(search);
+        const folioLinkedStr = p.folioLinked ? p.folioLinked.toString().toLowerCase() : "";
+        const mSearch = !search || (p.proveedor||"").toLowerCase().includes(search) || (p.descripcion||"").toLowerCase().includes(search) || folioLinkedStr.includes(search);
         const mPrio = selectedFilters.pPrio.length === 0 || selectedFilters.pPrio.includes(p.prioridad);
         const mProv = selectedFilters.pProv.length === 0 || selectedFilters.pProv.includes(p.proveedor);
         const mPed = selectedFilters.pPed.length === 0 || selectedFilters.pPed.includes(p.pedido);
@@ -188,14 +216,80 @@ function updateUI() {
     if (currentView === 'planning') renderPlanningTable();
 }
 
-// --- CALENDAR & FOLIO (Reused from v13) ---
+function updateKPIs() {
+    const states = { 'Producción': 0, 'Tránsito': 0, 'Aduana': 0, 'Depósito': 0 };
+    const fobs = { 'Producción': 0, 'Tránsito': 0, 'Aduana': 0, 'Depósito': 0 };
+    let totalFob = 0, totalSena = 0, totalBal = 0;
+    let countAlerts = 0, countSoon = 0;
+
+    filteredData.forEach(f => {
+        if(states[f.estado] !== undefined) { states[f.estado]++; fobs[f.estado] += f.fob; }
+        totalFob += f.fob; totalSena += f.sena_usd; totalBal += f.balance_usd;
+        if(f._semaforo === 'rojo') countAlerts++;
+        if(f._semaforo === 'amarillo') countSoon++;
+    });
+
+    for(let s in states) {
+        const tag = s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+        if(document.getElementById(`count-${tag}`)) document.getElementById(`count-${tag}`).innerText = states[s];
+        if(document.getElementById(`fob-${tag}`)) document.getElementById(`fob-${tag}`).innerText = `USD ${fobs[s].toLocaleString()}`;
+    }
+
+    const setVal = (id, val) => { if(document.getElementById(id)) document.getElementById(id).innerText = val; };
+    setVal('fin-fob-total', `USD ${totalFob.toLocaleString()}`);
+    setVal('fin-total-sena', `USD ${totalSena.toLocaleString()}`);
+    setVal('fin-total-balance', `USD ${totalBal.toLocaleString()}`);
+    setVal('fin-ticket-avg', `USD ${(totalFob / (filteredData.length || 1)).toLocaleString(undefined, {maximumFractionDigits:0})}`);
+
+    setVal('es-count', `${filteredData.length} Folios`);
+    setVal('es-fob', `USD ${totalFob.toLocaleString()}`);
+    setVal('es-alert', countAlerts);
+    setVal('es-soon', countSoon);
+}
+
+function renderMasterTable() {
+    const body = document.getElementById('tableBody');
+    if(!body) return;
+    const sorted = [...filteredData].sort((a,b) => {
+        let vA = a[sortConfig.key], vB = b[sortConfig.key];
+        if (sortConfig.key === 'fob') { vA = parseFloat(vA); vB = parseFloat(vB); }
+        else if (sortConfig.key.includes('fecha') || sortConfig.key === 'eta' || sortConfig.key === 'etd') {
+            const upKey = sortConfig.key === 'fecha_compra' ? 'COMPRA' : sortConfig.key.toUpperCase();
+            vA = a[`_date${upKey}`] || 0; vB = b[`_date${upKey}`] || 0;
+        }
+        return sortConfig.dir === 'asc' ? (vA > vB ? 1 : -1) : (vA < vB ? 1 : -1);
+    });
+
+    body.innerHTML = sorted.map(f => `
+        <tr onclick="openFolio('${f.folio}')">
+            <td><div class="status-dot semaforo-${f._semaforo}"></div></td>
+            <td><b>#${f.folio}</b></td>
+            <td>${f.proveedor}</td>
+            <td class="text-truncate">${f.mercaderia}</td>
+            <td><span class="badge status-${f.estado.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")}">${f.estado}</span></td>
+            <td>${f.fecha_compra}</td>
+            <td>${f.etd}</td>
+            <td>${f.eta}</td>
+            <td class="text-right">USD ${f.fob.toLocaleString()}</td>
+        </tr>
+    `).join('');
+}
+
+function setSort(key) {
+    if(sortConfig.key === key) sortConfig.dir = sortConfig.dir === 'asc' ? 'desc' : 'asc';
+    else { sortConfig.key = key; sortConfig.dir = 'asc'; }
+    renderMasterTable();
+}
+
 let tooltipTimeout;
 
-function renderCalendar() { /* identical visual logic omitted for brevity, keeping skeleton */ 
+function renderCalendar() {
     const container = document.getElementById('arrivalCalendar');
     if(!container) return;
+
     const monthNames = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
     document.getElementById('currentCalMonth').innerText = `${monthNames[calendarDate.getMonth()]} ${calendarDate.getFullYear()}`;
+
     const month = calendarDate.getMonth();
     const year = calendarDate.getFullYear();
     const firstDay = new Date(year, month, 1).getDay();
@@ -205,9 +299,13 @@ function renderCalendar() { /* identical visual logic omitted for brevity, keepi
     ['D','L','M','X','J','V','S'].forEach(d => {
         const el = document.createElement('div'); el.className = "cal-header"; el.innerText = d; container.appendChild(el);
     });
-    for(let i=0; i < firstDay; i++) { const el = document.createElement('div'); el.className = "cal-day empty"; container.appendChild(el); }
 
-    const arrivals = filteredData.filter(f => f._dateETA && f._dateETA.getMonth() === month && f._dateETA.getFullYear() === year);
+    for(let i=0; i < firstDay; i++) {
+        const el = document.createElement('div'); el.className = "cal-day empty"; container.appendChild(el);
+    }
+
+    const arrivals = filteredData.filter(f => f._dateETA && !isNaN(f._dateETA.getTime()) && f._dateETA.getMonth() === month && f._dateETA.getFullYear() === year);
+
     for(let d=1; d <= daysInMonth; d++) {
         const dayFolios = arrivals.filter(f => f._dateETA.getDate() === d);
         const el = document.createElement('div');
@@ -225,21 +323,162 @@ function renderCalendar() { /* identical visual logic omitted for brevity, keepi
         container.appendChild(el);
     }
 }
-function changeCalMonth(step) { calendarDate.setMonth(calendarDate.getMonth() + step); renderCalendar(); }
-function showTooltip(e, folios) { /* Omitted identical rendering for brevity */ }
+
+function showTooltip(e, folios) {
+    const tt = document.getElementById('calTooltip');
+    tt.innerHTML = folios.map(f => `
+        <div class="tt-folio">
+            <div style="display:flex; justify-content:space-between;">
+                <b>Folio #${f.folio}</b>
+                <div class="status-dot semaforo-${f._semaforo}"></div>
+            </div>
+            <span>${f.proveedor} | ${f.mercaderia}</span>
+            <span>ETA: ${f.eta}</span>
+            ${f.adjunto && f.adjunto.startsWith('http') ? `<a href="${f.adjunto}" target="_blank" class="btn-primary btn-primary-sm mt-2"><i class="fa-solid fa-box-open"></i> Documento</a>` : ''}
+            <button class="btn-primary btn-primary-sm mt-1" style="background:var(--bg-card); border:1px solid var(--border); color:var(--text-main);" onclick="openFolio('${f.folio}')">Ver Ficha</button>
+        </div>
+    `).join('<hr style="border:0; border-top:1px solid var(--border); margin: 12px 0;">');
+    
+    tt.classList.add('show');
+    const rect = e.target.getBoundingClientRect();
+    let leftPos = rect.left + window.scrollX;
+    if (leftPos + 250 > window.innerWidth) leftPos = window.innerWidth - 270;
+
+    tt.style.left = leftPos + 'px';
+    tt.style.top = (rect.bottom + window.scrollY + 10) + 'px';
+
+    tt.onmouseenter = () => clearTimeout(tooltipTimeout);
+    tt.onmouseleave = () => hideTooltip();
+}
+
 function hideTooltip() { document.getElementById('calTooltip').classList.remove('show'); }
-function renderNextArrivals() { /* Omitted identical rendering */ }
-function updateKPIs() { /* Omitted identical updating */ }
-function renderFinancialCharts() { /* Omitted */ }
-function renderYoY() { /* Omitted */ }
-function renderMasterTable() { /* Omitted */ }
-function setSort(key) { /* Omitted */ }
+
+function changeCalMonth(step) { calendarDate.setMonth(calendarDate.getMonth() + step); renderCalendar(); }
+
+function renderNextArrivals() {
+    const container = document.getElementById('nextArrivals');
+    if(!container) return;
+    const now = new Date();
+    const next = filteredData.filter(f => f._dateETA && !isNaN(f._dateETA.getTime()) && f._dateETA >= now && f.estado !== 'Depósito')
+                .sort((a,b) => a._dateETA - b._dateETA).slice(0, 6);
+
+    container.innerHTML = next.map(f => {
+        let monthStr = "N/A"; let dayStr = "0";
+        if(f.eta.includes('/')) {
+            const pts = f.eta.split('/');
+            dayStr = pts[0];
+            monthStr = new Date(2000, pts[1]-1).toLocaleString('es', {month:'short'});
+        } else if (f._dateETA && !isNaN(f._dateETA.getTime())) {
+            dayStr = f._dateETA.getDate();
+            monthStr = f._dateETA.toLocaleString('es', {month:'short'});
+        }
+        
+        return `
+        <div class="cta-card" onclick="openFolio('${f.folio}')">
+            <div class="cta-date"><b>${dayStr}</b><span>${monthStr}</span></div>
+            <div class="cta-info">
+                <div style="display:flex; align-items:center; gap:6px;">
+                    <div class="status-dot semaforo-${f._semaforo}"></div><b>#${f.folio}</b>
+                </div>
+                <p>${f.proveedor}</p>
+            </div>
+            <div class="cta-state badge status-${f.estado.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")}">${f.estado}</div>
+        </div>
+    `}).join('');
+}
+
+function initChart(id, type, label, labels, data, colors) {
+    const ctx = document.getElementById(id);
+    if(!ctx || typeof Chart === 'undefined') return;
+    if(charts[id]) charts[id].destroy();
+    charts[id] = new Chart(ctx.getContext('2d'), {
+        type: type,
+        data: { labels: labels, datasets: [{ label: label, data: data, backgroundColor: colors || ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'] }] },
+        options: { responsive: true, plugins: { legend: { display: type !== 'bar' } } }
+    });
+}
+
+function renderFinancialCharts() {
+    if(filteredData.length === 0) return;
+
+    const dataByMonth = {};
+    const senaVsBalance = [0, 0];
+    const dataByProv = {};
+    const dataByCat = {};
+    const dataByLine = {};
+    const dataByState = {};
+
+    filteredData.forEach(f => {
+        if (f._dateCompra && !isNaN(f._dateCompra.getTime())) {
+            const monthName = f._dateCompra.toLocaleString('es', { month: 'short' }).toUpperCase();
+            dataByMonth[monthName] = (dataByMonth[monthName] || 0) + f.fob;
+        }
+        senaVsBalance[0] += f.sena_usd;
+        senaVsBalance[1] += f.balance_usd;
+
+        dataByProv[f.proveedor] = (dataByProv[f.proveedor] || 0) + f.fob;
+        dataByCat[f.categoria] = (dataByCat[f.categoria] || 0) + f.fob;
+        dataByLine[f.linea] = (dataByLine[f.linea] || 0) + f.fob;
+        dataByState[f.estado] = (dataByState[f.estado] || 0) + f.fob;
+    });
+
+    initChart('chartMonthsBuy', 'bar', 'FOB por Mes de Confirmación', Object.keys(dataByMonth), Object.values(dataByMonth), '#3b82f6');
+    initChart('chartSenaBalance', 'pie', 'Seña vs Balance', ['Seña USD', 'Balance USD'], senaVsBalance, ['#10b981', '#ef4444']);
+    
+    // Convertir a Arrays y ordenar para los Top 10
+    const provArr = Object.entries(dataByProv).sort((a,b) => b[1]-a[1]).slice(0, 10);
+    const catArr = Object.entries(dataByCat).sort((a,b) => b[1]-a[1]).slice(0, 10);
+    const lineArr = Object.entries(dataByLine).sort((a,b) => b[1]-a[1]).slice(0, 10);
+
+    initChart('chartVendorsFob', 'bar', 'Top 10 Proveedores (FOB USD)', provArr.map(x=>x[0]), provArr.map(x=>x[1]), '#8b5cf6');
+    initChart('chartCatsFob', 'bar', 'Top 10 Categorías (FOB USD)', catArr.map(x=>x[0]), catArr.map(x=>x[1]), '#f59e0b');
+    initChart('chartLineFob', 'doughnut', 'FOB por Línea', lineArr.map(x=>x[0]), lineArr.map(x=>x[1]));
+    initChart('chartStateFob', 'doughnut', 'FOB por Estado Actual', Object.keys(dataByState), Object.values(dataByState));
+}
+
+function renderYoY() {
+    if(rawData.length === 0) return;
+    const grp = document.getElementById('yoyGroup').value;
+    const yearA = parseInt(document.getElementById('yoyYearA').value);
+    const yearB = parseInt(document.getElementById('yoyYearB').value);
+
+    const dataA = {}; const dataB = {};
+
+    rawData.forEach(f => {
+        if (!f._dateCompra || isNaN(f._dateCompra.getTime())) return;
+        const curY = f._dateCompra.getFullYear();
+        const llave = f[grp] || 'Sin Definir';
+        if (curY === yearA) dataA[llave] = (dataA[llave] || 0) + f.fob;
+        if (curY === yearB) dataB[llave] = (dataB[llave] || 0) + f.fob;
+    });
+
+    const labels = [...new Set([...Object.keys(dataA), ...Object.keys(dataB)])].sort();
+    const dsA = labels.map(l => dataA[l] || 0);
+    const dsB = labels.map(l => dataB[l] || 0);
+
+    const ctx = document.getElementById('chartYoY');
+    if(!ctx || typeof Chart === 'undefined') return;
+    if(charts['yoyChart']) charts['yoyChart'].destroy();
+    
+    charts['yoyChart'] = new Chart(ctx.getContext('2d'), {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [
+                { label: `FOB ${yearA}`, data: dsA, backgroundColor: '#3b82f6' },
+                { label: `FOB ${yearB}`, data: dsB, backgroundColor: '#10b981' }
+            ]
+        },
+        options: { responsive: true }
+    });
+}
+
 
 function openFolio(id) {
-    if(!id) return; // fail safe for empty strings
+    if(!id) return;
     hideTooltip();
-    const f = rawData.find(x => x.folio === id);
-    if(!f) { alert(`El folio ${id} aún no existe o no ha sido sincronizado en Base Importaciones.`); return; }
+    const f = rawData.find(x => x.folio.toString() === id.toString());
+    if(!f) { alert(`El folio ${id} aún no existe en Base Importaciones.`); return; }
 
     document.getElementById('modalFolio').innerText = `Folio #${f.folio}`;
     document.getElementById('modalBadge').innerText = f.estado;
@@ -248,7 +487,7 @@ function openFolio(id) {
 
     const act = document.getElementById('modalActions');
     if(f.adjunto && f.adjunto.startsWith('http')) {
-        act.innerHTML = `<a href="${f.adjunto}" target="_blank" class="btn-primary"><i class="fa-solid fa-folder-open"></i> Link Adjunto</a>`;
+        act.innerHTML = `<button onclick="window.open('${f.adjunto}', '_blank')" class="btn-primary"><i class="fa-solid fa-folder-open"></i> Link Adjunto</button>`;
     } else {
         act.innerHTML = ``;
     }
@@ -339,8 +578,7 @@ function openPlanModal(id = null) {
         document.getElementById('pf-comentarios').value = p.comentarios;
         document.getElementById('pf-responsable').value = p.responsable;
         document.getElementById('pf-folio').value = p.folioLinked;
-        
-        btnDel.classList.remove('hidden'); // Show delete option
+        btnDel.classList.remove('hidden'); 
     } else {
         document.getElementById('planModalTitle').innerText = "Nueva Planificación";
         document.getElementById('pf-id').value = 'REQ-' + new Date().getTime(); // Unique ID
@@ -351,8 +589,7 @@ function openPlanModal(id = null) {
         document.getElementById('pf-comentarios').value = "";
         document.getElementById('pf-responsable').value = "";
         document.getElementById('pf-folio').value = "";
-        
-        btnDel.classList.add('hidden'); // Hide delete option for new
+        btnDel.classList.add('hidden'); 
     }
     document.getElementById('planModal').classList.add('active');
 }
@@ -360,7 +597,6 @@ function openPlanModal(id = null) {
 async function savePlan() {
     const btn = document.getElementById('btnSavePlan');
     const status = document.getElementById('planSaveStatus');
-    
     const doc = {
         id: document.getElementById('pf-id').value,
         prioridad: document.getElementById('pf-prioridad').value,
@@ -386,23 +622,19 @@ async function savePlan() {
         const result = await response.json();
         if(result.error) throw new Error(result.error);
         
-        // Optimistic UX Update adding the returned timestamp safely
         doc.ultima_actualizacion = result.timestamp;
-        
         const idx = planData.findIndex(x => x.id === doc.id);
         if(idx > -1) {
-            doc.fecha_creacion = planData[idx].fecha_creacion; // Keep creation date
+            doc.fecha_creacion = planData[idx].fecha_creacion; 
             planData[idx] = doc; 
         } else {
             doc.fecha_creacion = result.timestamp;
             planData.push(doc);
         }
-        
         status.style.color = "var(--success)";
         status.innerText = "¡Sincronizado!";
-        populateFilterOptions(); // Re-index multiselect lists dynamically
+        populateFilterOptions(); 
         applyAllFilters();
-        
         setTimeout(() => closeModal('planModal'), 800);
     } catch(err) {
         console.error(err);
@@ -431,10 +663,8 @@ async function deletePlan() {
         const result = await response.json();
         if(result.error) throw new Error(result.error);
         
-        // Optimistic remote of memory
         planData = planData.filter(x => x.id !== id);
         applyAllFilters();
-        
         closeModal('planModal');
     } catch(err) {
         console.error(err);
@@ -446,16 +676,14 @@ async function deletePlan() {
     }
 }
 
-// --- UTILS ---
+// --- VIEW UTILS ---
 function switchView(view) {
     currentView = view;
-    // Visibilidad de Vistas y Menúes
     document.querySelectorAll('.view-section').forEach(s => s.classList.remove('active'));
     document.querySelectorAll('.sidebar-nav li:not(.section-label)').forEach(l => l.classList.remove('active'));
     document.getElementById(`view-${view}`).classList.add('active');
     document.getElementById(`nav-${view}`).classList.add('active');
 
-    // Visibilidad del Panel de Filtros Top-Header
     const advFilt = document.getElementById('advanceFilters');
     const planFilt = document.getElementById('planFilters');
     if(advFilt && planFilt) {
@@ -470,11 +698,31 @@ function switchView(view) {
     updateUI();
 }
 
+/**
+ * PARSEO DE FECHA MEGA ROBUSTO - TAREA 5
+ * Soporta DD/MM/YYYY o el fallback sucio de Google Sheets "18-abr.-2026" o "18-abr-2026"
+ */
 function parseDate(s) {
     if(!s || s==="-") return null;
-    const parts = s.split('/');
-    if(parts.length < 3) return null;
-    return new Date(parts[2], parts[1]-1, parts[0]);
+    
+    // Formato Standard "DD/MM/YYYY"
+    if (s.includes('/')) {
+        const parts = s.split('/');
+        if(parts.length === 3) return new Date(parts[2], parts[1]-1, parts[0]);
+    }
+    
+    // Formato Caótico Exportación Textil "18-abr.-2026" 
+    if (s.includes('-')) {
+        const parts = s.replace(/\./g, '').split('-'); 
+        if(parts.length === 3) {
+            const day = parseInt(parts[0]);
+            const year = parseInt(parts[2]);
+            const monthsStr = {"ene":0,"feb":1,"mar":2,"abr":3,"may":4,"jun":5,"jul":6,"ago":7,"sep":8,"oct":9,"nov":10,"dic":11};
+            let monNum = parts[1].toLowerCase().substring(0,3);
+            if (monthsStr[monNum] !== undefined) {
+               return new Date(year, monthsStr[monNum], day);
+            }
+        }
+    }
+    return null;
 }
-
-// Retaining table generation omitted for extreme brevity previously if required, but already simplified.
