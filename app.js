@@ -1,9 +1,9 @@
 /**
- * ERP IMPORTACIONES DISER SAS - Master Orchestrator v11.0 (QUALITY)
- * Logic: Single-Source Processing + Advanced Filtering + YoY + Calendar
+ * ERP IMPORTACIONES DISER SAS - Master Orchestrator v12.0 (QUALITY)
+ * Logic: Single-Source Processing + Advanced Multi-Select Filters + Tooltips
  */
 
-const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxEEKzrLMLInz15M9eDUoufaLcL6y-UBZ3KiwvnyjB8NFYABl3MBfllj6LfR40IFd4n/exec';
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxMWIBNBFqqaeHShktuO74AK4vm7uNPuDXxjEImNmpl2pTlV-YsAZL-uZdt-KMXUdLz/exec';
 let rawData = [];
 let filteredData = [];
 let charts = {};
@@ -11,9 +11,26 @@ let currentView = 'operative';
 let sortConfig = { key: 'folio', dir: 'desc' };
 let calendarDate = new Date();
 
+let selectedFilters = {
+    fYear: [],
+    fMonth: [],
+    fProvider: [],
+    fState: [],
+    fLine: [],
+    fCat: [],
+    fProd: []
+};
+
 document.addEventListener('DOMContentLoaded', () => {
     loadData();
-    window.onclick = (e) => { if(e.target.id === 'folioModal') closeModal(); };
+    
+    // Close modals and dropdowns on outside click
+    window.onclick = (e) => { 
+        if(e.target.id === 'folioModal') closeModal(); 
+        if(!e.target.closest('.ms-wrapper')) {
+            document.querySelectorAll('.ms-dropdown').forEach(d => d.classList.remove('active'));
+        }
+    };
 });
 
 // --- CORE DATA ENGINE ---
@@ -33,7 +50,7 @@ async function loadData() {
             _dateETA: parseDate(f.eta)
         }));
         
-        console.log("ERP v11.0 - Data Active:", rawData.length, "Folios");
+        console.log("ERP v12.0 - Data Active:", rawData.length, "Folios");
         populateFilterOptions();
         applyAllFilters();
     } catch (err) {
@@ -44,40 +61,27 @@ async function loadData() {
     }
 }
 
-// --- FILTERING SYSTEM v11 ---
-function applyAllFilters() {
-    const search = document.getElementById('globalSearch').value.toLowerCase();
-    const year = document.getElementById('fYear').value;
-    const month = document.getElementById('fMonth').value;
-    const prov = document.getElementById('fProvider').value;
-    const state = document.getElementById('fState').value;
-    const line = document.getElementById('fLine').value;
-    const cat = document.getElementById('fCat').value;
-    const prod = document.getElementById('fProd').value;
-
-    filteredData = rawData.filter(f => {
-        const matchSearch = !search || f.folio.includes(search) || f.proveedor.toLowerCase().includes(search) || f.mercaderia.toLowerCase().includes(search);
-        const matchYear = year === 'all' || (f.fecha_compra && f.fecha_compra.includes(year));
-        const matchMonth = month === 'all' || (f.fecha_compra && f.fecha_compra.split('/')[1] === month);
-        const matchProv = prov === 'all' || f.proveedor === prov;
-        const matchState = state === 'all' || f.estado === state;
-        const matchLine = line === 'all' || f.linea === line;
-        const matchCat = cat === 'all' || f.categoria === cat;
-        const matchProd = prod === 'all' || f.producto === prod;
-
-        return matchSearch && matchYear && matchMonth && matchProv && matchState && matchLine && matchCat && matchProd;
-    });
-
-    updateUI();
+// --- v12 MULTI-SELECT FILTERING SYSTEM ---
+function toggleMS(id) {
+    document.querySelectorAll('.ms-dropdown').forEach(d => { if(d.id !== `msd-${id}`) d.classList.remove('active') });
+    document.getElementById(`msd-${id}`).classList.toggle('active');
 }
 
-function quickFilterStatus(status) {
-    document.getElementById('fState').value = status;
-    switchView('list');
+function clearMS(id) {
+    selectedFilters[id] = [];
+    document.querySelectorAll(`#msd-${id} input`).forEach(i => i.checked = false);
     applyAllFilters();
 }
 
-// --- DYNAMIC FILTERS ---
+function updateMS(id, val, isChecked) {
+    if(isChecked) {
+        if(!selectedFilters[id].includes(val)) selectedFilters[id].push(val);
+    } else {
+        selectedFilters[id] = selectedFilters[id].filter(v => v !== val);
+    }
+    applyAllFilters();
+}
+
 function populateFilterOptions() {
     const years = [...new Set(rawData.map(f => f.fecha_compra ? f.fecha_compra.split('/')[2] : null))].filter(Boolean).sort();
     const provs = [...new Set(rawData.map(f => f.proveedor))].filter(Boolean).sort();
@@ -85,39 +89,75 @@ function populateFilterOptions() {
     const cats = [...new Set(rawData.map(f => f.categoria))].filter(Boolean).sort();
     const prods = [...new Set(rawData.map(f => f.producto))].filter(Boolean).sort();
     const states = ['Producción', 'Tránsito', 'Aduana', 'Depósito'];
+    
+    const months = ['01','02','03','04','05','06','07','08','09','10','11','12'].map((m,i) => {
+        return { val: m, text: new Date(2000, i).toLocaleString('es', {month:'long'}) };
+    });
 
-    fillSelect('fYear', years, "Año");
-    fillSelect('fProvider', provs, "Proveedor");
-    fillSelect('fLine', lines, "Línea");
-    fillSelect('fCat', cats, "Categoría");
-    fillSelect('fProd', prods, "Producto");
-    fillSelect('fState', states, "Estado");
+    fillMultiSelect('fYear', years.map(y => ({ val:y, text:y })));
+    fillMultiSelect('fMonth', months);
+    fillMultiSelect('fProvider', provs.map(p => ({ val:p, text:p })));
+    fillMultiSelect('fLine', lines.map(l => ({ val:l, text:l })));
+    fillMultiSelect('fCat', cats.map(c => ({ val:c, text:c })));
+    fillMultiSelect('fProd', prods.map(p => ({ val:p, text:p })));
+    fillMultiSelect('fState', states.map(s => ({ val:s, text:s })));
 
     // YoY Years
-    fillSelect('yoyYearA', years.reverse(), null);
-    fillSelect('yoyYearB', years, null);
-    
-    // Default Months
-    const monthSelect = document.getElementById('fMonth');
-    monthSelect.innerHTML = '<option value="all">Mes: Todos</option>';
-    ['01','02','03','04','05','06','07','08','09','10','11','12'].forEach((m, i) => {
-        const opt = document.createElement('option');
-        opt.value = m;
-        opt.innerText = new Date(2000, i).toLocaleString('es', {month:'long'});
-        monthSelect.appendChild(opt);
+    fillSelectSimple('yoyYearA', years.reverse());
+    fillSelectSimple('yoyYearB', years);
+}
+
+function fillMultiSelect(id, listObj) {
+    const el = document.getElementById(`msd-${id}`);
+    if(!el) return;
+    el.innerHTML = `<button class="clear-filter-btn" onclick="clearMS('${id}')">Desmarcar Todos</button>`;
+    listObj.forEach(item => {
+        const isChecked = selectedFilters[id].includes(item.val) ? "checked" : "";
+        el.innerHTML += `
+            <label class="checkbox-row">
+                <input type="checkbox" value="${item.val}" ${isChecked} onchange="updateMS('${id}', this.value, this.checked)">
+                ${item.text}
+            </label>
+        `;
     });
 }
 
-function fillSelect(id, list, label) {
+function fillSelectSimple(id, list) {
     const el = document.getElementById(id);
     if(!el) return;
-    el.innerHTML = label ? `<option value="all">${label}: Todos</option>` : "";
+    el.innerHTML = '';
     list.forEach(val => {
         const opt = document.createElement('option');
-        opt.value = val;
-        opt.innerText = val;
+        opt.value = val; opt.innerText = val;
         el.appendChild(opt);
     });
+}
+
+function applyAllFilters() {
+    const search = document.getElementById('globalSearch').value.toLowerCase();
+
+    filteredData = rawData.filter(f => {
+        const mSearch = !search || f.folio.includes(search) || f.proveedor.toLowerCase().includes(search) || f.mercaderia.toLowerCase().includes(search);
+        
+        const mYear = selectedFilters.fYear.length === 0 || (f.fecha_compra && selectedFilters.fYear.includes(f.fecha_compra.split('/')[2]));
+        const mMonth = selectedFilters.fMonth.length === 0 || (f.fecha_compra && selectedFilters.fMonth.includes(f.fecha_compra.split('/')[1]));
+        const mProv = selectedFilters.fProvider.length === 0 || selectedFilters.fProvider.includes(f.proveedor);
+        const mState = selectedFilters.fState.length === 0 || selectedFilters.fState.includes(f.estado);
+        const mLine = selectedFilters.fLine.length === 0 || selectedFilters.fLine.includes(f.linea);
+        const mCat = selectedFilters.fCat.length === 0 || selectedFilters.fCat.includes(f.categoria);
+        const mProd = selectedFilters.fProd.length === 0 || selectedFilters.fProd.includes(f.producto);
+
+        return mSearch && mYear && mMonth && mProv && mState && mLine && mCat && mProd;
+    });
+
+    updateUI();
+}
+
+function quickFilterStatus(status) {
+    selectedFilters.fState = [status];
+    fillMultiSelect('fState', ['Producción', 'Tránsito', 'Aduana', 'Depósito'].map(s => ({val:s, text:s}))); // force re-render checkboxes
+    switchView('list');
+    applyAllFilters();
 }
 
 // --- UI UPDATER ---
@@ -149,8 +189,9 @@ function updateKPIs() {
 
     // Counts
     for(let s in states) {
-        const elCount = document.getElementById(`count-${s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")}`);
-        const elFob = document.getElementById(`fob-${s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")}`);
+        const tag = s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+        const elCount = document.getElementById(`count-${tag}`);
+        const elFob = document.getElementById(`fob-${tag}`);
         if(elCount) elCount.innerText = states[s];
         if(elFob) elFob.innerText = `USD ${fobs[s].toLocaleString()}`;
     }
@@ -163,7 +204,9 @@ function updateKPIs() {
     setVal('fin-ticket-avg', `USD ${(totalFob / (filteredData.length || 1)).toLocaleString(undefined, {maximumFractionDigits:0})}`);
 }
 
-// --- CALENDAR ENGINE ---
+// --- CALENDAR ENGINE v12.0 (Tooltips) ---
+let tooltipTimeout;
+
 function renderCalendar() {
     const container = document.getElementById('arrivalCalendar');
     if(!container) return;
@@ -197,11 +240,44 @@ function renderCalendar() {
         el.innerHTML = `<span>${d}</span>`;
         if(dayFolios.length > 0) {
             el.innerHTML += `<div class="day-count">${dayFolios.length} Arribos</div>`;
-            el.onclick = () => showCalDetails(dayFolios, d);
+            el.onclick = () => openFolio(dayFolios[0].folio); // Quick open first if clicked directly
+            
+            el.onmouseenter = (e) => {
+                clearTimeout(tooltipTimeout);
+                showTooltip(e, dayFolios);
+            };
+            el.onmouseleave = () => {
+                tooltipTimeout = setTimeout(hideTooltip, 100);
+            };
         }
         container.appendChild(el);
     }
 }
+
+function showTooltip(e, folios) {
+    const tt = document.getElementById('calTooltip');
+    tt.innerHTML = folios.map(f => `
+        <div class="tt-folio">
+            <b>Folio #${f.folio}</b>
+            <span>${f.proveedor} | ${f.mercaderia}</span>
+            <span>ETA: ${f.eta}</span>
+            ${f.adjunto && f.adjunto.startsWith('http') ? `<a href="${f.adjunto}" target="_blank" class="btn-primary btn-primary-sm mt-2"><i class="fa-solid fa-box-open"></i> Ver Lista Productos</a>` : ''}
+            <button class="btn-primary btn-primary-sm mt-1" style="background:var(--bg-card); border:1px solid var(--border); color:var(--text-main);" onclick="openFolio('${f.folio}')">Ver Ficha ERP</button>
+        </div>
+    `).join('<hr style="border:0; border-top:1px solid var(--border); margin: 12px 0;">');
+    
+    tt.classList.add('show');
+    
+    // Position (Adjust bounding so it doesn't overflow)
+    const rect = e.target.getBoundingClientRect();
+    tt.style.left = (rect.left + window.scrollX) + 'px';
+    tt.style.top = (rect.bottom + window.scrollY + 10) + 'px';
+
+    tt.onmouseenter = () => clearTimeout(tooltipTimeout);
+    tt.onmouseleave = () => hideTooltip();
+}
+
+function hideTooltip() { document.getElementById('calTooltip').classList.remove('show'); }
 
 function changeCalMonth(step) {
     calendarDate.setMonth(calendarDate.getMonth() + step);
@@ -212,7 +288,7 @@ function renderNextArrivals() {
     const container = document.getElementById('nextArrivals');
     if(!container) return;
     const now = new Date();
-    const next = rawData.filter(f => f._dateETA && f._dateETA >= now && f.estado !== 'Depósito')
+    const next = filteredData.filter(f => f._dateETA && f._dateETA >= now && f.estado !== 'Depósito')
                 .sort((a,b) => a._dateETA - b._dateETA)
                 .slice(0, 6);
 
@@ -251,8 +327,8 @@ function renderYoY() {
     const yearA = document.getElementById('yoyYearA').value;
     const yearB = document.getElementById('yoyYearB').value;
 
-    const dataA = rawData.filter(f => f.fecha_compra && f.fecha_compra.includes(yearA));
-    const dataB = rawData.filter(f => f.fecha_compra && f.fecha_compra.includes(yearB));
+    const dataA = filteredData.filter(f => f.fecha_compra && f.fecha_compra.includes(yearA)); // Added filter awareness
+    const dataB = filteredData.filter(f => f.fecha_compra && f.fecha_compra.includes(yearB)); // Added filter awareness
 
     const mapA = {}, mapB = {};
     dataA.forEach(f => mapA[f[groupKey]] = (mapA[f[groupKey]] || 0) + f.fob);
@@ -314,12 +390,21 @@ function setSort(key) {
 
 // --- MODAL & TABS ---
 function openFolio(id) {
+    hideTooltip();
     const f = rawData.find(x => x.folio === id);
     if(!f) return;
 
     document.getElementById('modalFolio').innerText = `Folio #${f.folio}`;
     document.getElementById('modalBadge').innerText = f.estado;
     document.getElementById('modalBadge').className = `badge status-${f.estado.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")}`;
+
+    // Action buttons (Product list)
+    const act = document.getElementById('modalActions');
+    if(f.adjunto && f.adjunto.startsWith('http')) {
+        act.innerHTML = `<a href="${f.adjunto}" target="_blank" class="btn-primary"><i class="fa-solid fa-box-open"></i> Ver Listado de Productos</a>`;
+    } else {
+        act.innerHTML = ``;
+    }
 
     const opCont = document.getElementById('opDetails');
     opCont.innerHTML = `

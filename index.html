@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DISER SAS - ERP Quality v11.0</title>
+    <title>DISER SAS - ERP Quality v12.0</title>
     <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -15,7 +15,7 @@
         <!-- Sidebar -->
         <aside class="sidebar">
             <div class="sidebar-header">
-                <div class="logo"><i class="fa-solid fa-gem"></i> <span>DISER v11</span></div>
+                <div class="logo"><i class="fa-solid fa-gem"></i> <span>DISER v12</span></div>
             </div>
             <nav class="sidebar-nav">
                 <ul>
@@ -39,14 +39,36 @@
                         <i class="fa-solid fa-search"></i>
                         <input type="text" id="globalSearch" placeholder="Buscar folio, proveedor, mercadería..." oninput="applyAllFilters()">
                     </div>
+                    <!-- Custom Multi-Select Filters v12.0 -->
                     <div class="filter-grid" id="advanceFilters">
-                        <select id="fYear" onchange="applyAllFilters()"><option value="all">Año: Todos</option></select>
-                        <select id="fMonth" onchange="applyAllFilters()"><option value="all">Mes: Todos</option></select>
-                        <select id="fProvider" onchange="applyAllFilters()"><option value="all">Proveedor: Todos</option></select>
-                        <select id="fState" onchange="applyAllFilters()"><option value="all">Estado: Todos</option></select>
-                        <select id="fLine" onchange="applyAllFilters()"><option value="all">Línea: Todas</option></select>
-                        <select id="fCat" onchange="applyAllFilters()"><option value="all">Categoría: Todas</option></select>
-                        <select id="fProd" onchange="applyAllFilters()"><option value="all">Producto: Todos</option></select>
+                        <div class="ms-wrapper" id="msw-fYear">
+                            <div class="ms-header" onclick="toggleMS('fYear')">Año <i class="fas fa-chevron-down"></i></div>
+                            <div class="ms-dropdown" id="msd-fYear"></div>
+                        </div>
+                        <div class="ms-wrapper" id="msw-fMonth">
+                            <div class="ms-header" onclick="toggleMS('fMonth')">Mes <i class="fas fa-chevron-down"></i></div>
+                            <div class="ms-dropdown" id="msd-fMonth"></div>
+                        </div>
+                        <div class="ms-wrapper" id="msw-fProvider">
+                            <div class="ms-header" onclick="toggleMS('fProvider')">Proveedor <i class="fas fa-chevron-down"></i></div>
+                            <div class="ms-dropdown" id="msd-fProvider"></div>
+                        </div>
+                        <div class="ms-wrapper" id="msw-fState">
+                            <div class="ms-header" onclick="toggleMS('fState')">Estado <i class="fas fa-chevron-down"></i></div>
+                            <div class="ms-dropdown" id="msd-fState"></div>
+                        </div>
+                        <div class="ms-wrapper" id="msw-fLine">
+                            <div class="ms-header" onclick="toggleMS('fLine')">Línea <i class="fas fa-chevron-down"></i></div>
+                            <div class="ms-dropdown" id="msd-fLine"></div>
+                        </div>
+                        <div class="ms-wrapper" id="msw-fCat">
+                            <div class="ms-header" onclick="toggleMS('fCat')">Categoría <i class="fas fa-chevron-down"></i></div>
+                            <div class="ms-dropdown" id="msd-fCat"></div>
+                        </div>
+                        <div class="ms-wrapper" id="msw-fProd">
+                            <div class="ms-header" onclick="toggleMS('fProd')">Producto <i class="fas fa-chevron-down"></i></div>
+                            <div class="ms-dropdown" id="msd-fProd"></div>
+                        </div>
                     </div>
                 </div>
             </header>
@@ -82,7 +104,7 @@
                 </div>
 
                 <div class="logistic-grid">
-                    <div class="panel-card calendar-panel">
+                    <div class="panel-card calendar-panel relative">
                         <div class="panel-header">
                             <h3>Calendario Mensual de Arribos (ETA)</h3>
                             <div class="cal-controls">
@@ -92,6 +114,9 @@
                             </div>
                         </div>
                         <div id="arrivalCalendar" class="calendar-grid"></div>
+                        
+                        <!-- Tooltip Container v12.0 -->
+                        <div id="calTooltip" class="cal-tooltip"></div>
                     </div>
                     <div class="panel-card mini-list">
                         <h3>Próximos Arribos</h3>
@@ -104,12 +129,12 @@
             <div id="view-financial" class="view-section">
                 <div class="section-title">
                     <h1>Análisis Financiero</h1>
-                    <p>KPIs ejecutivos basados en Base Importaciones.</p>
+                    <p>KPIs ejecutivos basados en los cruces de filtros activos.</p>
                 </div>
 
                 <div class="dashboard-kpis financial-v11">
                     <div class="kpi-card gradient-blue">
-                        <label>FOB TOTAL</label>
+                        <label>FOB TOTAL (FILTRADO)</label>
                         <h2 id="fin-fob-total">USD 0</h2>
                     </div>
                     <div class="kpi-card">
@@ -153,11 +178,11 @@
                     </div>
                     <div class="control-group">
                         <label>Año A:</label>
-                        <select id="yoyYearA" onchange="renderYoY()"></select>
+                        <select id="yoyYearA" class="form-select" onchange="renderYoY()"></select>
                     </div>
                     <div class="control-group">
                         <label>Año B:</label>
-                        <select id="yoyYearB" onchange="renderYoY()"></select>
+                        <select id="yoyYearB" class="form-select" onchange="renderYoY()"></select>
                     </div>
                 </div>
                 <div class="panel-card yoy-chart-container">
@@ -200,10 +225,16 @@
     <div class="modal-overlay" id="folioModal">
         <div class="modal-content xl">
             <div class="modal-header">
-                <div>
+                <div class="modal-title-stack">
                     <h2 id="modalFolio">Folio #000</h2>
                     <span id="modalBadge" class="badge">ESTADO</span>
                 </div>
+                
+                <!-- Action Buttons Container v12.0 -->
+                <div class="modal-actions" id="modalActions">
+                   <!-- Botón inyectado dinámicamente -->
+                </div>
+
                 <button class="btn-close" onclick="closeModal()">×</button>
             </div>
             <div class="modal-body v11">
