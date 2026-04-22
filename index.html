@@ -39,6 +39,13 @@
     .btn-reload { background: var(--primary); color: white; border: none; padding: 12px 28px; border-radius: 10px; font-weight: 600; font-size: 0.9rem; cursor: pointer; margin-top: 16px; transition: 0.2s; }
     .btn-reload:hover { background: var(--primary-dark); }
 
+    /* ---- NUEVOS ESTILOS v16 ---- */
+    .cal-today { background: rgba(99,102,241,0.15) !important; border: 1px solid var(--primary) !important; box-shadow: inset 0 0 10px rgba(99,102,241,0.2); }
+    .btn-export { background: #10b981; color: white; border: none; padding: 10px 16px; border-radius: 8px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; font-size: 0.85rem; transition: 0.2s; }
+    .btn-export:hover { background: #059669; }
+    .sub-nav { padding-left: 42px !important; font-size: 0.85rem !important; margin-top: 4px; }
+    .sub-nav a { padding: 6px 12px !important; }
+
     /* ---- APP LAYOUT ---- */
     #screen-app { display: none; min-height: 100vh; }
     .app-container { display: flex; min-height: 100vh; }
@@ -298,8 +305,10 @@
             <li id="nav-yoy"><a href="#" onclick="switchView('yoy')"><i class="fa-solid fa-code-compare"></i> Comparativa YoY</a></li>
             <li id="nav-list"><a href="#" onclick="switchView('list')"><i class="fa-solid fa-table-list"></i> Base Maestra</a></li>
             <li class="section-label mt-4">GESTIÓN ACTIVA</li>
-            <li id="nav-planning"><a href="#" onclick="switchView('planning')"><i class="fa-solid fa-calendar-check"></i> Planificación</a></li>
-          </ul>
+            <li class="section-label" style="padding-left:20px; font-size:0.7rem; margin-top:8px; color:var(--text-muted);"><i class="fa-solid fa-calendar-check"></i> PLANIFICACIÓN</li>
+            <li class="sub-nav" id="nav-planning-imp"><a href="#" onclick="switchView('planning-imp')">Importaciones</a></li>
+            <li class="sub-nav" id="nav-planning-prod"><a href="#" onclick="switchView('planning-prod')">Producto</a></li>
+            <li class="sub-nav" id="nav-planning-pagos"><a href="#" onclick="switchView('planning-pagos')">Pagos</a></li>
 
           <div class="sidebar-footer">
             <div id="userInfoDisplay"></div>
@@ -409,7 +418,12 @@
         <!-- VIEW: BASE MAESTRA -->
         <div id="view-list" class="view-section">
           <div class="table-container v11">
-            <div class="table-header-v11"><h2>Base Maestra de Folios</h2></div>
+            <div class="table-header-v11" style="display:flex; justify-content:space-between; align-items:center;">
+              <h2>Base Maestra de Folios</h2>
+              <div style="display:flex; gap:12px;">
+                <button class="btn-export" onclick="exportMasterCSV()"><i class="fa-solid fa-file-csv"></i> Exportar a CSV</button>
+              </div>
+            </div>
             <div class="scroll-table">
               <table id="masterTable">
                 <thead>
@@ -433,24 +447,66 @@
           </div>
         </div>
 
-        <!-- VIEW: PLANIFICACIÓN -->
-        <div id="view-planning" class="view-section">
+        <!-- VIEW: PLANIFICACIÓN IMPORTACIONES -->
+        <div id="view-planning-imp" class="view-section">
           <div class="section-title" style="display:flex;justify-content:space-between;align-items:flex-end">
-            <div><h1>Planificación de Importaciones</h1><p>Gestión activa de negociaciones conectada con el Google Sheet.</p></div>
-            <button class="btn-primary" onclick="openPlanModal()"><i class="fa-solid fa-plus"></i> Nueva Planificación</button>
+            <div><h1>Planificación: Importaciones</h1><p>Gestión activa de negociaciones de importación.</p></div>
+            <button class="btn-primary" onclick="openPlanModalImp()"><i class="fa-solid fa-plus"></i> Nueva Importación</button>
           </div>
           <div class="table-container">
             <div class="scroll-table">
-              <table id="planningTable">
+              <table id="planTableImp">
                 <thead>
                   <tr>
                     <th>Prioridad</th><th>Proveedor</th><th>Descripción</th>
-                    <th>Pedido</th><th>Cotización</th><th>Impo</th>
-                    <th>Aprobación</th><th>Banco</th><th>Responsable</th>
-                    <th>Folio</th><th>Acción</th>
+                    <th>Pedido</th><th>Cotización</th><th>Impo</th><th>Banco</th><th>Aprobación</th>
+                    <th>Responsable</th><th>Folio Real</th><th>Acción</th>
                   </tr>
                 </thead>
-                <tbody id="planningBody"></tbody>
+                <tbody id="planningBodyImp"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- VIEW: PLANIFICACIÓN PRODUCTO -->
+        <div id="view-planning-prod" class="view-section">
+          <div class="section-title" style="display:flex;justify-content:space-between;align-items:flex-end">
+            <div><h1>Planificación: Producto</h1><p>Gestión de desarrollo, muestras y validaciones.</p></div>
+            <button class="btn-primary" onclick="openPlanModalProd()"><i class="fa-solid fa-plus"></i> Nuevo Producto</button>
+          </div>
+          <div class="table-container">
+            <div class="scroll-table">
+              <table id="planTableProd">
+                <thead>
+                  <tr>
+                    <th>Prioridad</th><th>Proveedor</th><th>Línea</th><th>Producto</th>
+                    <th>Muestra Solicitada</th><th>Muestra Recibida</th><th>Revisión</th><th>Ajustes</th><th>Aprobación</th>
+                    <th>Responsable</th><th>Acción</th>
+                  </tr>
+                </thead>
+                <tbody id="planningBodyProd"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- VIEW: PLANIFICACIÓN PAGOS -->
+        <div id="view-planning-pagos" class="view-section">
+          <div class="section-title" style="display:flex;justify-content:space-between;align-items:flex-end">
+            <div><h1>Planificación: Pagos</h1><p>Seguimiento de pagos operativos.</p></div>
+            <button class="btn-primary" onclick="openPlanModalPagos()"><i class="fa-solid fa-plus"></i> Nuevo Pago</button>
+          </div>
+          <div class="table-container">
+            <div class="scroll-table">
+              <table id="planTablePagos">
+                <thead>
+                  <tr>
+                    <th>Prioridad</th><th>Proveedor</th><th>Folio Real</th><th>Tipo</th><th>Monto</th>
+                    <th>Estado Pago</th><th>Banco</th><th>Aprobación</th><th>Responsable</th><th>Acción</th>
+                  </tr>
+                </thead>
+                <tbody id="planningBodyPagos"></tbody>
               </table>
             </div>
           </div>
@@ -481,37 +537,109 @@
       </div>
     </div>
 
-    <!-- MODAL: Planificación -->
-    <div class="modal-overlay" id="planModal">
+    <!-- =============================================
+         MODALES PLANIFICACIÓN (3 MÓDULOS)
+    ============================================== -->
+    <div class="modal-overlay" id="planModalImp">
       <div class="modal-content md">
         <div class="modal-header">
-          <h2 id="planModalTitle">Planificación</h2>
-          <button class="btn-close" onclick="closeModal('planModal')">×</button>
+          <h2 id="planModalImpTitle">Registro de Importación</h2>
+          <button class="btn-close" onclick="closeModal('planModalImp')">×</button>
         </div>
         <div class="modal-body p-form">
-          <input type="hidden" id="pf-id">
+          <input type="hidden" id="pfi-id">
           <div class="form-grid">
-            <div class="form-group"><label>Prioridad</label><select id="pf-prioridad" class="form-select"><option>1. Urgente</option><option>2. Alta</option><option>3. Media</option><option value="4. Baja" selected>4. Baja</option></select></div>
-            <div class="form-group"><label>Responsable</label><input type="text" id="pf-responsable" placeholder="Ej: Mauricio"></div>
-            <div class="form-group"><label>Proveedor / Fábrica</label><input type="text" id="pf-proveedor" placeholder="Nombre Proveedor"></div>
-            <div class="form-group"><label>Folio Relacionado</label><input type="text" id="pf-folio" placeholder="Vincular a importación real..."></div>
-            <div class="form-group full-width"><label>Descripción / Mercadería</label><input type="text" id="pf-descripcion" placeholder="Ej: Consolidado Camperas Otoño"></div>
+            <div class="form-group"><label>Prioridad</label><select id="pfi-prioridad" class="form-select"><option>1. Urgente</option><option>2. Alta</option><option>3. Media</option><option value="4. Baja" selected>4. Baja</option></select></div>
+            <div class="form-group"><label>Proveedor</label><input type="text" id="pfi-proveedor"></div>
+            <div class="form-group full-width"><label>Descripción</label><input type="text" id="pfi-descripcion"></div>
+            
+            <div class="form-group"><label>Checklist: Pedido</label><select id="pfi-pedido" class="form-select state-sel"><option>Pendiente</option><option>En proceso</option><option>Completado</option><option>Cancelado</option></select></div>
+            <div class="form-group"><label>Checklist: Cotización</label><select id="pfi-cotizacion" class="form-select state-sel"><option>Pendiente</option><option>En proceso</option><option>Completado</option><option>Cancelado</option></select></div>
+            <div class="form-group"><label>Checklist: Impo</label><select id="pfi-impo" class="form-select state-sel"><option>Pendiente</option><option>En proceso</option><option>Completado</option><option>Cancelado</option></select></div>
+            <div class="form-group"><label>Checklist: Banco</label><select id="pfi-banco" class="form-select state-sel"><option>Pendiente</option><option>En proceso</option><option>Completado</option><option>Cancelado</option></select></div>
+            <div class="form-group"><label>Checklist: Aprobación</label><select id="pfi-aprobacion" class="form-select state-sel"><option>Pendiente</option><option>En proceso</option><option>Completado</option><option>Cancelado</option></select></div>
+            
+            <div class="form-group"><label>Responsable</label><input type="text" id="pfi-responsable"></div>
+            <div class="form-group"><label>Folio Relacionado</label><input type="text" id="pfi-folio"></div>
+            <div class="form-group full-width"><label>Comentarios</label><textarea id="pfi-comentarios" rows="3"></textarea></div>
           </div>
-          <h3 class="form-subtitle">Seguimiento de Etapas</h3>
-          <div class="form-grid chips-grid">
-            <div class="form-group"><label>Pedido</label><select id="pf-pedido" class="form-select state-sel"><option>Pendiente</option><option>En proceso</option><option>Completado</option><option>Postponado</option></select></div>
-            <div class="form-group"><label>Cotización</label><select id="pf-cotizacion" class="form-select state-sel"><option>Pendiente</option><option>En proceso</option><option>Completado</option></select></div>
-            <div class="form-group"><label>Impo</label><select id="pf-impo" class="form-select state-sel"><option>Pendiente</option><option>En proceso</option><option>Completado</option></select></div>
-            <div class="form-group"><label>Banco (Pagos)</label><select id="pf-banco" class="form-select state-sel"><option>Pendiente</option><option>En proceso</option><option>Completado</option></select></div>
-            <div class="form-group"><label>Aprobación</label><select id="pf-aprobacion" class="form-select state-sel"><option>Pendiente</option><option>Aprobado</option><option>Rechazado</option></select></div>
+        </div>
+        <div class="modal-footer" style="display:flex;justify-content:space-between;padding:24px;border-top:1px solid var(--border)">
+          <button class="btn-danger-outline hidden" id="btnDeleteImp" onclick="deletePlan('imp', document.getElementById('pfi-id').value)"><i class="fa-solid fa-trash"></i> Eliminar</button>
+          <div style="display:flex;align-items:center;gap:12px;margin-left:auto">
+            <span id="planSaveStatusImp" style="font-size:0.9rem;color:var(--text-muted)"></span>
+            <button class="btn-primary" id="btnSaveImp" onclick="savePlan('imp')"><i class="fa-solid fa-cloud-arrow-up"></i> Guardar</button>
           </div>
-          <div class="form-group full-width mt-3"><label>Comentarios y Notas</label><textarea id="pf-comentarios" rows="3" placeholder="Observaciones del proceso..."></textarea></div>
-          <div class="form-actions mt-4">
-            <button class="btn-danger-outline hidden" id="btnDeletePlan" onclick="deletePlan()"><i class="fa-solid fa-trash"></i> Eliminar</button>
-            <div style="display:flex;flex-direction:column;align-items:flex-end">
-              <button class="btn-primary" id="btnSavePlan" onclick="savePlan()"><i class="fa-solid fa-cloud-arrow-up"></i> Guardar Cambios</button>
-              <p id="planSaveStatus" style="font-size:.8rem;margin-top:8px;color:var(--text-muted)"></p>
-            </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-overlay" id="planModalProd">
+      <div class="modal-content md">
+        <div class="modal-header">
+          <h2 id="planModalProdTitle">Desarrollo de Producto</h2>
+          <button class="btn-close" onclick="closeModal('planModalProd')">×</button>
+        </div>
+        <div class="modal-body p-form">
+          <input type="hidden" id="pfp-id">
+          <div class="form-grid">
+            <div class="form-group"><label>Prioridad</label><select id="pfp-prioridad" class="form-select"><option>1. Urgente</option><option>2. Alta</option><option>3. Media</option><option value="4. Baja" selected>4. Baja</option></select></div>
+            <div class="form-group"><label>Proveedor</label><input type="text" id="pfp-proveedor"></div>
+            <div class="form-group"><label>Línea</label><input type="text" id="pfp-linea"></div>
+            <div class="form-group"><label>Categoría</label><input type="text" id="pfp-cat"></div>
+            <div class="form-group full-width"><label>Producto</label><input type="text" id="pfp-producto"></div>
+            <div class="form-group full-width"><label>Descripción</label><input type="text" id="pfp-descripcion"></div>
+            
+            <div class="form-group"><label>Muestra Solicitada</label><select id="pfp-solicitada" class="form-select state-sel"><option>Pendiente</option><option>En proceso</option><option>Completado</option></select></div>
+            <div class="form-group"><label>Muestra Recibida</label><select id="pfp-recibida" class="form-select state-sel"><option>Pendiente</option><option>En proceso</option><option>Completado</option></select></div>
+            <div class="form-group"><label>Revisión Interna</label><select id="pfp-revision" class="form-select state-sel"><option>Pendiente</option><option>En proceso</option><option>Completado</option></select></div>
+            <div class="form-group"><label>Ajustes</label><select id="pfp-ajustes" class="form-select state-sel"><option>Pendiente</option><option>En proceso</option><option>Completado</option></select></div>
+            <div class="form-group"><label>Aprobación Final</label><select id="pfp-aprobacion" class="form-select state-sel"><option>Pendiente</option><option>En proceso</option><option>Completado</option></select></div>
+            
+            <div class="form-group"><label>Responsable</label><input type="text" id="pfp-responsable"></div>
+            <div class="form-group full-width"><label>Comentarios</label><textarea id="pfp-comentarios" rows="3"></textarea></div>
+          </div>
+        </div>
+        <div class="modal-footer" style="display:flex;justify-content:space-between;padding:24px;border-top:1px solid var(--border)">
+          <button class="btn-danger-outline hidden" id="btnDeleteProd" onclick="deletePlan('prod', document.getElementById('pfp-id').value)"><i class="fa-solid fa-trash"></i> Eliminar</button>
+          <div style="display:flex;align-items:center;gap:12px;margin-left:auto">
+            <span id="planSaveStatusProd" style="font-size:0.9rem;color:var(--text-muted)"></span>
+            <button class="btn-primary" id="btnSaveProd" onclick="savePlan('prod')"><i class="fa-solid fa-cloud-arrow-up"></i> Guardar</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-overlay" id="planModalPagos">
+      <div class="modal-content md">
+        <div class="modal-header">
+          <h2 id="planModalPagosTitle">Gestión de Pagos</h2>
+          <button class="btn-close" onclick="closeModal('planModalPagos')">×</button>
+        </div>
+        <div class="modal-body p-form">
+          <input type="hidden" id="pfg-id">
+          <div class="form-grid">
+            <div class="form-group"><label>Prioridad</label><select id="pfg-prioridad" class="form-select"><option>1. Urgente</option><option>2. Alta</option><option>3. Media</option><option value="4. Baja" selected>4. Baja</option></select></div>
+            <div class="form-group"><label>Proveedor</label><input type="text" id="pfg-proveedor"></div>
+            <div class="form-group"><label>Folio Relacionado</label><input type="text" id="pfg-folio"></div>
+            <div class="form-group"><label>Tipo de Pago</label><select id="pfg-tipo" class="form-select"><option>Seña</option><option>Balance</option><option>Flete</option><option>Despacho</option><option>Otro</option></select></div>
+            
+            <div class="form-group"><label>Moneda</label><select id="pfg-moneda" class="form-select"><option>USD</option><option>RMB</option><option>UYU</option></select></div>
+            <div class="form-group"><label>Monto</label><input type="number" id="pfg-monto" class="form-input"></div>
+            
+            <div class="form-group"><label>Estado Pago</label><select id="pfg-estado" class="form-select state-sel"><option>Pendiente</option><option>En proceso</option><option>Pagado</option><option>Postpuesto</option><option>Cancelado</option></select></div>
+            <div class="form-group"><label>Banco</label><input type="text" id="pfg-banco"></div>
+            
+            <div class="form-group"><label>Aprobación</label><select id="pfg-aprobacion" class="form-select state-sel"><option>Pendiente</option><option>Aprobado</option><option>Rechazado</option></select></div>
+            <div class="form-group"><label>Responsable</label><input type="text" id="pfg-responsable"></div>
+            <div class="form-group full-width"><label>Comentarios</label><textarea id="pfg-comentarios" rows="3"></textarea></div>
+          </div>
+        </div>
+        <div class="modal-footer" style="display:flex;justify-content:space-between;padding:24px;border-top:1px solid var(--border)">
+          <button class="btn-danger-outline hidden" id="btnDeletePagos" onclick="deletePlan('pagos', document.getElementById('pfg-id').value)"><i class="fa-solid fa-trash"></i> Eliminar</button>
+          <div style="display:flex;align-items:center;gap:12px;margin-left:auto">
+            <span id="planSaveStatusPagos" style="font-size:0.9rem;color:var(--text-muted)"></span>
+            <button class="btn-primary" id="btnSavePagos" onclick="savePlan('pagos')"><i class="fa-solid fa-cloud-arrow-up"></i> Guardar</button>
           </div>
         </div>
       </div>
@@ -551,8 +679,9 @@
     // ============================================================
     let rawData          = [];
     let filteredData     = [];
-    let planData         = [];
-    let filteredPlanData = [];
+    let planDataImp      = [];
+    let planDataProd     = [];
+    let planDataPagos    = [];
     let charts           = {};
     let currentView      = 'operative';
     let sortConfig       = { key: 'folio', dir: 'desc' };
@@ -561,10 +690,10 @@
     let tooltipTimeout;
 
     const ROLE_PERMS = {
-      Admin:    { views: ['operative', 'financial', 'yoy', 'list', 'planning'], showFinancial: true  },
-      Finanzas: { views: ['financial', 'yoy', 'list'],                          showFinancial: true  },
-      Compras:  { views: ['operative', 'list', 'planning'],                     showFinancial: false },
-      Deposito: { views: ['operative', 'list'],                                 showFinancial: false },
+      Admin:    { views: ['operative', 'financial', 'yoy', 'list', 'planning', 'planning-imp', 'planning-prod', 'planning-pagos'], showFinancial: true  },
+      Finanzas: { views: ['financial', 'yoy', 'list', 'planning-pagos'],                               showFinancial: true  },
+      Compras:  { views: ['operative', 'list', 'planning', 'planning-imp', 'planning-prod'],           showFinancial: false },
+      Deposito: { views: ['operative', 'list'],                                                        showFinancial: false },
     };
 
     let selectedFilters = {
@@ -641,7 +770,9 @@
     // ============================================================
     function _processIncomingData(result) {
       const arrImp = result.importaciones || [];
-      planData = result.planificacion || [];
+      planDataImp = result.planImp || [];
+      planDataProd = result.planProd || [];
+      planDataPagos = result.planPagos || [];
 
       const today = new Date();
       today.setHours(0, 0, 0, 0);
@@ -811,7 +942,9 @@
       if (currentView === 'financial') renderFinancialCharts();
       if (currentView === 'operative') { renderCalendar(); renderNextArrivals(); }
       if (currentView === 'yoy')       renderYoY();
-      if (currentView === 'planning')  renderPlanningTable();
+      if (currentView === 'planning-imp')  renderPlanImp();
+      if (currentView === 'planning-prod') renderPlanProd();
+      if (currentView === 'planning-pagos') renderPlanPagos();
     }
 
     function updateKPIs() {
@@ -906,20 +1039,34 @@
       const firstDay = new Date(year, month, 1).getDay();
       const daysInMonth = new Date(year, month+1, 0).getDate();
       for (let i = 0; i < firstDay; i++) { const e = document.createElement('div'); e.className = 'cal-day empty'; container.appendChild(e); }
+      
       const arrivals = filteredData.filter(f => f._dateETA && !isNaN(f._dateETA.getTime()) && f._dateETA.getMonth() === month && f._dateETA.getFullYear() === year);
+      
+      const now = new Date();
+      
       for (let d = 1; d <= daysInMonth; d++) {
         const dayFolios = arrivals.filter(f => f._dateETA.getDate() === d);
         const el = document.createElement('div');
-        el.className = `cal-day ${dayFolios.length ? 'has-data' : ''}`;
+        
+        const isToday = (d === now.getDate() && month === now.getMonth() && year === now.getFullYear());
+        el.className = `cal-day ${dayFolios.length ? 'has-data' : ''} ${isToday ? 'cal-today' : ''}`;
+        
         let html = `<span>${d}</span>`;
         if (dayFolios.length) {
           html += `<div class="cal-cards-container">`;
           dayFolios.slice(0, 2).forEach(f => {
             const drv = f.adjunto?.startsWith('http')
               ? `<div onclick="event.stopPropagation();openDocViewer('${f.folio}','${f.adjunto}')"><i class="fa-solid fa-folder-open" style="color:var(--primary);cursor:pointer" title="Ver"></i></div>` : '';
+            
+            // Priority dots
+            let prioDot = '';
+            if (f.prioridad?.includes('1.')) prioDot = '<div style="width:6px;height:6px;border-radius:50%;background:#991b1b;display:inline-block;margin-right:4px;"></div>';
+            else if (f.prioridad?.includes('2.')) prioDot = '<div style="width:6px;height:6px;border-radius:50%;background:#ef4444;display:inline-block;margin-right:4px;"></div>';
+            else if (f.prioridad?.includes('3.')) prioDot = '<div style="width:6px;height:6px;border-radius:50%;background:#eab308;display:inline-block;margin-right:4px;"></div>';
+
             html += `
               <div class="cal-mini-card status-border-${f._semaforo}" onclick="openFolio('${f.folio}')">
-                <div class="cmc-head"><b>#${f.folio}</b>${drv}</div>
+                <div class="cmc-head">${prioDot}<b>#${f.folio}</b>${drv}</div>
                 <div class="cmc-prov">${f.proveedor}</div>
                 <div class="cmc-merca">${f.mercaderia}</div>
               </div>`;
@@ -940,7 +1087,7 @@
         <div class="tt-folio">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px"><b>Folio #${f.folio}</b><div class="status-dot semaforo-${f._semaforo}" style="margin:0"></div></div>
           <div style="color:var(--text-muted);font-size:.75rem">${f.proveedor} | ${f.mercaderia}</div>
-          <div style="color:var(--text-muted);font-size:.75rem">ETA: ${f.eta}</div>
+          <div style="color:var(--text-muted);font-size:.75rem">ETA: ${f.eta} | Prioridad: ${f.prioridad||'N/A'}</div>
           ${f.adjunto?.startsWith('http') ? `<button onclick="openDocViewer('${f.folio}','${f.adjunto}')" class="btn-primary btn-primary-sm" style="margin-top:6px;width:100%"><i class="fa-solid fa-paperclip"></i> Ver Doc</button>` : ''}
           <button onclick="openFolio('${f.folio}')" class="btn-primary btn-primary-sm" style="margin-top:4px;width:100%;background:var(--bg-card);border:1px solid var(--border);color:var(--text-main)">Ver Ficha</button>
         </div>`).join('<hr style="border:0;border-top:1px solid var(--border);margin:8px 0">');
@@ -963,16 +1110,28 @@
       const container = document.getElementById('nextArrivals');
       if (!container) return;
       const now  = new Date();
+      now.setHours(0,0,0,0);
+      const limit = new Date(now);
+      limit.setDate(now.getDate() + 30); // 30 days window
+
       const next = filteredData
-        .filter(f => f._dateETA && !isNaN(f._dateETA.getTime()) && f._dateETA >= now && f.estado !== 'Depósito')
-        .sort((a,b) => a._dateETA - b._dateETA).slice(0, 6);
-      container.innerHTML = next.map(f => {
+        .filter(f => f._dateETA && !isNaN(f._dateETA.getTime()) && f._dateETA >= now && f._dateETA <= limit && f.estado !== 'Depósito')
+        .sort((a,b) => a._dateETA - b._dateETA);
+      
+      container.innerHTML = next.length ? next.map(f => {
         const pts = f.eta?.includes('/') ? f.eta.split('/') : [];
         const day = pts[0] || '?';
         const mon = pts.length ? new Date(2000,pts[1]-1).toLocaleString('es',{month:'short'}) : '?';
         const sc  = f.estado.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+        
+        let prioColor = 'transparent';
+        if (f.prioridad?.includes('1.')) prioColor = '#991b1b';
+        else if (f.prioridad?.includes('2.')) prioColor = '#ef4444';
+        else if (f.prioridad?.includes('3.')) prioColor = '#eab308';
+
         return `
-          <div class="cta-card" onclick="openFolio('${f.folio}')">
+          <div class="cta-card" onclick="openFolio('${f.folio}')" style="position:relative; overflow:hidden;">
+            <div style="position:absolute; left:0; top:0; bottom:0; width:4px; background:${prioColor}"></div>
             <div class="cta-date"><b>${day}</b><span>${mon}</span></div>
             <div class="cta-info"><div style="display:flex;align-items:center;gap:6px"><div class="status-dot semaforo-${f._semaforo}"></div><b>#${f.folio}</b></div><p>${f.proveedor}</p></div>
             <span class="badge status-${sc}">${f.estado}</span>
@@ -1061,14 +1220,15 @@
         ? `<button onclick="openDocViewer('${f.folio}','${f.adjunto}')" class="btn-primary"><i class="fa-solid fa-folder-open"></i> Ver Documento</button>` : '';
 
       const wC = document.getElementById('workflowTimeline');
-      const plan = planData.find(p => p.folioLinked?.toString() === f.folio?.toString());
+      const plan = planDataImp.find(p => p['Folio Relacionado']?.toString() === f.folio?.toString());
       if (wC) {
         if (plan) {
           const icon = s => s==='Completado'||s==='Aprobado' ? 'fa-check' : s==='Rechazado' ? 'fa-times' : s==='En proceso' ? 'fa-spinner fa-spin' : 'fa-hourglass-start';
           const cls  = s => s==='Completado'||s==='Aprobado' ? 'active' : s==='En proceso' ? 'processing' : s==='Rechazado' ? 'rejected' : '';
-          wC.innerHTML = ['pedido','cotizacion','impo','banco','aprobacion'].map(k => `
-            <div class="wf-step ${cls(plan[k])}"><div class="wf-icon"><i class="fa-solid ${icon(plan[k])}"></i></div><div class="wf-label">${k.charAt(0).toUpperCase()+k.slice(1)}</div></div>`).join('');
-          if (plan.comentarios) wC.innerHTML += `<div style="width:100%;padding:10px;background:rgba(59,130,246,.1);color:var(--primary-light);border-radius:8px;font-size:.85rem;margin-top:12px"><i class="fa-solid fa-note-sticky"></i> ${plan.comentarios}</div>`;
+          const keys = ['Pedido','Cotización','Impo','Banco','Aprobación'];
+          wC.innerHTML = keys.map(k => `
+            <div class="wf-step ${cls(plan[k])}"><div class="wf-icon"><i class="fa-solid ${icon(plan[k])}"></i></div><div class="wf-label">${k}</div></div>`).join('');
+          if (plan.Comentarios) wC.innerHTML += `<div style="width:100%;padding:10px;background:rgba(59,130,246,.1);color:var(--primary-light);border-radius:8px;font-size:.85rem;margin-top:12px"><i class="fa-solid fa-note-sticky"></i> ${plan.Comentarios}</div>`;
         } else {
           const steps = [
             {l:'Cotización',c:true,                                           i:'fa-file-invoice'},
@@ -1119,117 +1279,262 @@
     // ============================================================
     // PLANIFICACIÓN — Tabla
     // ============================================================
-    function renderPlanningTable() {
-      const tbody = document.getElementById('planningBody');
+    function renderPlanImp() {
+      const tbody = document.getElementById('planningBodyImp');
       if (!tbody) return;
-      if (!filteredPlanData.length) {
-        tbody.innerHTML = `<tr><td colspan="11" style="text-align:center;padding:40px;color:var(--text-muted)">No hay planificaciones para estos filtros.</td></tr>`;
-        return;
-      }
-      tbody.innerHTML = filteredPlanData.map(p => `
+      if (!planDataImp.length) { tbody.innerHTML = `<tr><td colspan="11" style="text-align:center;padding:40px;color:var(--text-muted)">No hay registros.</td></tr>`; return; }
+      tbody.innerHTML = planDataImp.map(p => `
         <tr>
-          <td><span class="prio-badge" data-val="${p.prioridad}">${p.prioridad}</span></td>
-          <td><b>${p.proveedor}</b></td>
-          <td class="text-truncate" title="${p.descripcion}">${p.descripcion}</td>
-          <td><span class="planning-state" data-val="${p.pedido}">${p.pedido}</span></td>
-          <td><span class="planning-state" data-val="${p.cotizacion}">${p.cotizacion}</span></td>
-          <td><span class="planning-state" data-val="${p.impo}">${p.impo}</span></td>
-          <td><span class="planning-state" data-val="${p.aprobacion}">${p.aprobacion}</span></td>
-          <td><span class="planning-state" data-val="${p.banco}">${p.banco}</span></td>
-          <td>${p.responsable||'—'}</td>
-          <td>${p.folioLinked ? `<span class="folio-link" onclick="openFolio('${p.folioLinked}')">#${p.folioLinked}</span>` : '—'}</td>
-          <td><button class="btn-primary btn-primary-sm" onclick="openPlanModal('${p.id}')"><i class="fa-solid fa-pen-to-square"></i> Editar</button></td>
+          <td><span class="prio-badge" data-val="${p.Prioridad}">${p.Prioridad||'—'}</span></td>
+          <td><b>${p.Proveedor||'—'}</b></td>
+          <td class="text-truncate" title="${p['Descripción']}">${p['Descripción']||'—'}</td>
+          <td><span class="planning-state" data-val="${p.Pedido}">${p.Pedido||'—'}</span></td>
+          <td><span class="planning-state" data-val="${p['Cotización']}">${p['Cotización']||'—'}</span></td>
+          <td><span class="planning-state" data-val="${p.Impo}">${p.Impo||'—'}</span></td>
+          <td><span class="planning-state" data-val="${p.Banco}">${p.Banco||'—'}</span></td>
+          <td><span class="planning-state" data-val="${p['Aprobación']}">${p['Aprobación']||'—'}</span></td>
+          <td>${p.Responsable||'—'}</td>
+          <td>${p['Folio Relacionado'] ? `<span class="folio-link" onclick="openFolio('${p['Folio Relacionado']}')">#${p['Folio Relacionado']}</span>` : '—'}</td>
+          <td><button class="btn-primary btn-primary-sm" onclick="openPlanModalImp('${p.ID}')"><i class="fa-solid fa-pen-to-square"></i></button></td>
         </tr>`).join('');
     }
 
-    // ============================================================
-    // PLANIFICACIÓN — Modal
-    // ============================================================
-    function openPlanModal(id = null) {
-      document.getElementById('planSaveStatus').innerText = '';
-      const btnDel = document.getElementById('btnDeletePlan');
+    function openPlanModalImp(id = null) {
+      document.getElementById('planSaveStatusImp').innerText = '';
+      const btnDel = document.getElementById('btnDeleteImp');
       if (id) {
-        const p = planData.find(x => x.id === id);
-        if (!p) return;
-        document.getElementById('planModalTitle').innerText = 'Editar Planificación';
-        document.getElementById('pf-id').value          = p.id;
-        document.getElementById('pf-prioridad').value   = p.prioridad;
-        document.getElementById('pf-proveedor').value   = p.proveedor;
-        document.getElementById('pf-descripcion').value = p.descripcion;
-        document.getElementById('pf-pedido').value      = p.pedido;
-        document.getElementById('pf-cotizacion').value  = p.cotizacion;
-        document.getElementById('pf-impo').value        = p.impo;
-        document.getElementById('pf-aprobacion').value  = p.aprobacion;
-        document.getElementById('pf-banco').value       = p.banco;
-        document.getElementById('pf-comentarios').value = p.comentarios;
-        document.getElementById('pf-responsable').value = p.responsable;
-        document.getElementById('pf-folio').value       = p.folioLinked;
+        const p = planDataImp.find(x => x.ID === id);
+        if(!p) return;
+        document.getElementById('planModalImpTitle').innerText = 'Editar Importación';
+        document.getElementById('pfi-id').value = p.ID;
+        document.getElementById('pfi-prioridad').value = p.Prioridad || '4. Baja';
+        document.getElementById('pfi-proveedor').value = p.Proveedor || '';
+        document.getElementById('pfi-descripcion').value = p['Descripción'] || '';
+        document.getElementById('pfi-pedido').value = p.Pedido || 'Pendiente';
+        document.getElementById('pfi-cotizacion').value = p['Cotización'] || 'Pendiente';
+        document.getElementById('pfi-impo').value = p.Impo || 'Pendiente';
+        document.getElementById('pfi-banco').value = p.Banco || 'Pendiente';
+        document.getElementById('pfi-aprobacion').value = p['Aprobación'] || 'Pendiente';
+        document.getElementById('pfi-responsable').value = p.Responsable || '';
+        document.getElementById('pfi-folio').value = p['Folio Relacionado'] || '';
+        document.getElementById('pfi-comentarios').value = p.Comentarios || '';
         btnDel.classList.remove('hidden');
       } else {
-        document.getElementById('planModalTitle').innerText = 'Nueva Planificación';
-        document.getElementById('pf-id').value              = 'REQ-' + Date.now();
-        document.getElementById('pf-prioridad').value       = '4. Baja';
-        ['pf-proveedor','pf-descripcion','pf-comentarios','pf-responsable','pf-folio'].forEach(f => document.getElementById(f).value = '');
-        document.querySelectorAll('.state-sel').forEach(s => s.value = 'Pendiente');
+        document.getElementById('planModalImpTitle').innerText = 'Registro de Importación';
+        document.getElementById('pfi-id').value = '';
+        document.getElementById('pfi-prioridad').value = '4. Baja';
+        ['pfi-proveedor','pfi-descripcion','pfi-responsable','pfi-folio','pfi-comentarios'].forEach(f => document.getElementById(f).value = '');
+        ['pfi-pedido','pfi-cotizacion','pfi-impo','pfi-banco','pfi-aprobacion'].forEach(f => document.getElementById(f).value = 'Pendiente');
         btnDel.classList.add('hidden');
       }
-      document.getElementById('planModal').classList.add('active');
+      document.getElementById('planModalImp').classList.add('active');
     }
 
-    function savePlan() {
-      const btn    = document.getElementById('btnSavePlan');
-      const status = document.getElementById('planSaveStatus');
-      const doc    = {
-        id: document.getElementById('pf-id').value,
-        prioridad:   document.getElementById('pf-prioridad').value,
-        proveedor:   document.getElementById('pf-proveedor').value,
-        descripcion: document.getElementById('pf-descripcion').value,
-        pedido:      document.getElementById('pf-pedido').value,
-        cotizacion:  document.getElementById('pf-cotizacion').value,
-        impo:        document.getElementById('pf-impo').value,
-        aprobacion:  document.getElementById('pf-aprobacion').value,
-        banco:       document.getElementById('pf-banco').value,
-        comentarios: document.getElementById('pf-comentarios').value,
-        responsable: document.getElementById('pf-responsable').value,
-        folioLinked: document.getElementById('pf-folio').value,
-      };
+    function renderPlanProd() {
+      const tbody = document.getElementById('planningBodyProd');
+      if (!tbody) return;
+      if (!planDataProd.length) { tbody.innerHTML = `<tr><td colspan="11" style="text-align:center;padding:40px;color:var(--text-muted)">No hay registros.</td></tr>`; return; }
+      tbody.innerHTML = planDataProd.map(p => `
+        <tr>
+          <td><span class="prio-badge" data-val="${p.Prioridad}">${p.Prioridad||'—'}</span></td>
+          <td><b>${p.Proveedor||'—'}</b></td>
+          <td>${p['Línea']||'—'}</td>
+          <td class="text-truncate" title="${p.Producto}">${p.Producto||'—'}</td>
+          <td><span class="planning-state" data-val="${p['Muestra Solicitada']}">${p['Muestra Solicitada']||'—'}</span></td>
+          <td><span class="planning-state" data-val="${p['Muestra Recibida']}">${p['Muestra Recibida']||'—'}</span></td>
+          <td><span class="planning-state" data-val="${p['Revisión Interna']}">${p['Revisión Interna']||'—'}</span></td>
+          <td><span class="planning-state" data-val="${p.Ajustes}">${p.Ajustes||'—'}</span></td>
+          <td><span class="planning-state" data-val="${p['Aprobación Final']}">${p['Aprobación Final']||'—'}</span></td>
+          <td>${p.Responsable||'—'}</td>
+          <td><button class="btn-primary btn-primary-sm" onclick="openPlanModalProd('${p.ID}')"><i class="fa-solid fa-pen-to-square"></i></button></td>
+        </tr>`).join('');
+    }
+
+    function openPlanModalProd(id = null) {
+      document.getElementById('planSaveStatusProd').innerText = '';
+      const btnDel = document.getElementById('btnDeleteProd');
+      if (id) {
+        const p = planDataProd.find(x => x.ID === id);
+        if(!p) return;
+        document.getElementById('planModalProdTitle').innerText = 'Editar Producto';
+        document.getElementById('pfp-id').value = p.ID;
+        document.getElementById('pfp-prioridad').value = p.Prioridad || '4. Baja';
+        document.getElementById('pfp-proveedor').value = p.Proveedor || '';
+        document.getElementById('pfp-linea').value = p['Línea'] || '';
+        document.getElementById('pfp-cat').value = p['Categoría'] || '';
+        document.getElementById('pfp-producto').value = p.Producto || '';
+        document.getElementById('pfp-descripcion').value = p['Descripción'] || '';
+        document.getElementById('pfp-solicitada').value = p['Muestra Solicitada'] || 'Pendiente';
+        document.getElementById('pfp-recibida').value = p['Muestra Recibida'] || 'Pendiente';
+        document.getElementById('pfp-revision').value = p['Revisión Interna'] || 'Pendiente';
+        document.getElementById('pfp-ajustes').value = p.Ajustes || 'Pendiente';
+        document.getElementById('pfp-aprobacion').value = p['Aprobación Final'] || 'Pendiente';
+        document.getElementById('pfp-responsable').value = p.Responsable || '';
+        document.getElementById('pfp-comentarios').value = p.Comentarios || '';
+        btnDel.classList.remove('hidden');
+      } else {
+        document.getElementById('planModalProdTitle').innerText = 'Desarrollo de Producto';
+        document.getElementById('pfp-id').value = '';
+        document.getElementById('pfp-prioridad').value = '4. Baja';
+        ['pfp-proveedor','pfp-linea','pfp-cat','pfp-producto','pfp-descripcion','pfp-responsable','pfp-comentarios'].forEach(f => document.getElementById(f).value = '');
+        ['pfp-solicitada','pfp-recibida','pfp-revision','pfp-ajustes','pfp-aprobacion'].forEach(f => document.getElementById(f).value = 'Pendiente');
+        btnDel.classList.add('hidden');
+      }
+      document.getElementById('planModalProd').classList.add('active');
+    }
+
+    function renderPlanPagos() {
+      const tbody = document.getElementById('planningBodyPagos');
+      if (!tbody) return;
+      if (!planDataPagos.length) { tbody.innerHTML = `<tr><td colspan="10" style="text-align:center;padding:40px;color:var(--text-muted)">No hay registros.</td></tr>`; return; }
+      tbody.innerHTML = planDataPagos.map(p => `
+        <tr>
+          <td><span class="prio-badge" data-val="${p.Prioridad}">${p.Prioridad||'—'}</span></td>
+          <td><b>${p.Proveedor||'—'}</b></td>
+          <td>${p['Folio Relacionado'] ? `<span class="folio-link" onclick="openFolio('${p['Folio Relacionado']}')">#${p['Folio Relacionado']}</span>` : '—'}</td>
+          <td>${p['Tipo de Pago']||'—'}</td>
+          <td>${p.Moneda} ${(p.Monto||0).toLocaleString()}</td>
+          <td><span class="planning-state" data-val="${p['Estado Pago']}">${p['Estado Pago']||'—'}</span></td>
+          <td>${p.Banco||'—'}</td>
+          <td><span class="planning-state" data-val="${p['Aprobación']}">${p['Aprobación']||'—'}</span></td>
+          <td>${p.Responsable||'—'}</td>
+          <td><button class="btn-primary btn-primary-sm" onclick="openPlanModalPagos('${p.ID}')"><i class="fa-solid fa-pen-to-square"></i></button></td>
+        </tr>`).join('');
+    }
+
+    function openPlanModalPagos(id = null) {
+      document.getElementById('planSaveStatusPagos').innerText = '';
+      const btnDel = document.getElementById('btnDeletePagos');
+      if (id) {
+        const p = planDataPagos.find(x => x.ID === id);
+        if(!p) return;
+        document.getElementById('planModalPagosTitle').innerText = 'Editar Pago';
+        document.getElementById('pfg-id').value = p.ID;
+        document.getElementById('pfg-prioridad').value = p.Prioridad || '4. Baja';
+        document.getElementById('pfg-proveedor').value = p.Proveedor || '';
+        document.getElementById('pfg-folio').value = p['Folio Relacionado'] || '';
+        document.getElementById('pfg-tipo').value = p['Tipo de Pago'] || 'Seña';
+        document.getElementById('pfg-moneda').value = p.Moneda || 'USD';
+        document.getElementById('pfg-monto').value = p.Monto || '';
+        document.getElementById('pfg-estado').value = p['Estado Pago'] || 'Pendiente';
+        document.getElementById('pfg-banco').value = p.Banco || '';
+        document.getElementById('pfg-aprobacion').value = p['Aprobación'] || 'Pendiente';
+        document.getElementById('pfg-responsable').value = p.Responsable || '';
+        document.getElementById('pfg-comentarios').value = p.Comentarios || '';
+        btnDel.classList.remove('hidden');
+      } else {
+        document.getElementById('planModalPagosTitle').innerText = 'Gestión de Pagos';
+        document.getElementById('pfg-id').value = '';
+        document.getElementById('pfg-prioridad').value = '4. Baja';
+        ['pfg-proveedor','pfg-folio','pfg-monto','pfg-banco','pfg-responsable','pfg-comentarios'].forEach(f => document.getElementById(f).value = '');
+        document.getElementById('pfg-tipo').value = 'Seña';
+        document.getElementById('pfg-moneda').value = 'USD';
+        document.getElementById('pfg-estado').value = 'Pendiente';
+        document.getElementById('pfg-aprobacion').value = 'Pendiente';
+        btnDel.classList.add('hidden');
+      }
+      document.getElementById('planModalPagos').classList.add('active');
+    }
+
+    function savePlan(type) {
+      const btn = document.getElementById('btnSave' + (type === 'imp' ? 'Imp' : type === 'prod' ? 'Prod' : 'Pagos'));
+      const status = document.getElementById('planSaveStatus' + (type === 'imp' ? 'Imp' : type === 'prod' ? 'Prod' : 'Pagos'));
+      let doc = {};
+
+      if (type === 'imp') {
+        doc = {
+          ID: document.getElementById('pfi-id').value,
+          Prioridad: document.getElementById('pfi-prioridad').value,
+          Proveedor: document.getElementById('pfi-proveedor').value,
+          'Descripción': document.getElementById('pfi-descripcion').value,
+          Pedido: document.getElementById('pfi-pedido').value,
+          'Cotización': document.getElementById('pfi-cotizacion').value,
+          Impo: document.getElementById('pfi-impo').value,
+          Banco: document.getElementById('pfi-banco').value,
+          'Aprobación': document.getElementById('pfi-aprobacion').value,
+          Responsable: document.getElementById('pfi-responsable').value,
+          'Folio Relacionado': document.getElementById('pfi-folio').value,
+          Comentarios: document.getElementById('pfi-comentarios').value
+        };
+      } else if (type === 'prod') {
+        doc = {
+          ID: document.getElementById('pfp-id').value,
+          Prioridad: document.getElementById('pfp-prioridad').value,
+          Proveedor: document.getElementById('pfp-proveedor').value,
+          'Línea': document.getElementById('pfp-linea').value,
+          'Categoría': document.getElementById('pfp-cat').value,
+          Producto: document.getElementById('pfp-producto').value,
+          'Descripción': document.getElementById('pfp-descripcion').value,
+          'Muestra Solicitada': document.getElementById('pfp-solicitada').value,
+          'Muestra Recibida': document.getElementById('pfp-recibida').value,
+          'Revisión Interna': document.getElementById('pfp-revision').value,
+          Ajustes: document.getElementById('pfp-ajustes').value,
+          'Aprobación Final': document.getElementById('pfp-aprobacion').value,
+          Responsable: document.getElementById('pfp-responsable').value,
+          Comentarios: document.getElementById('pfp-comentarios').value
+        };
+      } else if (type === 'pagos') {
+        doc = {
+          ID: document.getElementById('pfg-id').value,
+          Prioridad: document.getElementById('pfg-prioridad').value,
+          Proveedor: document.getElementById('pfg-proveedor').value,
+          'Folio Relacionado': document.getElementById('pfg-folio').value,
+          'Tipo de Pago': document.getElementById('pfg-tipo').value,
+          Moneda: document.getElementById('pfg-moneda').value,
+          Monto: document.getElementById('pfg-monto').value,
+          'Estado Pago': document.getElementById('pfg-estado').value,
+          Banco: document.getElementById('pfg-banco').value,
+          'Aprobación': document.getElementById('pfg-aprobacion').value,
+          Responsable: document.getElementById('pfg-responsable').value,
+          Comentarios: document.getElementById('pfg-comentarios').value
+        };
+      }
+
       btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Guardando...';
       status.innerText = 'Sincronizando...';
+      
       google.script.run
         .withSuccessHandler(r => {
-          btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-cloud-arrow-up"></i> Guardar Cambios';
+          btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-cloud-arrow-up"></i> Guardar';
           if (r.error) { status.style.color='var(--danger)'; status.innerText='❌ '+r.error; return; }
-          const idx = planData.findIndex(x => x.id === doc.id);
-          if (idx>-1) { doc.fecha_creacion=planData[idx].fecha_creacion; planData[idx]=doc; } else { doc.fecha_creacion=r.timestamp; planData.push(doc); }
+          
+          let pArray = type === 'imp' ? planDataImp : type === 'prod' ? planDataProd : planDataPagos;
+          const idx = pArray.findIndex(x => x.ID === r.doc.ID);
+          if (idx > -1) { pArray[idx] = r.doc; } else { pArray.push(r.doc); }
+          
           status.style.color='var(--success)'; status.innerText='✅ Sincronizado';
-          populateFilterOptions(); applyAllFilters();
-          setTimeout(() => closeModal('planModal'), 800);
+          updateUI();
+          setTimeout(() => closeModal('planModal' + (type === 'imp' ? 'Imp' : type === 'prod' ? 'Prod' : 'Pagos')), 800);
         })
         .withFailureHandler(() => {
-          btn.disabled=false; btn.innerHTML='<i class="fa-solid fa-cloud-arrow-up"></i> Guardar Cambios';
-          status.style.color='var(--danger)'; status.innerText='❌ Error de conexión';
+          btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-cloud-arrow-up"></i> Guardar';
+          status.style.color='var(--danger)'; status.innerText='❌ Error de red';
         })
-        .savePlanData(doc);
+        .savePlanData(type, doc);
     }
 
-    function deletePlan() {
-      if (!confirm('¿Eliminar esta planificación?')) return;
-      const id     = document.getElementById('pf-id').value;
-      const btn    = document.getElementById('btnDeletePlan');
-      const status = document.getElementById('planSaveStatus');
-      btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Eliminando...';
+    function deletePlan(type, id) {
+      if(!confirm('¿Eliminar registro permanentemente?')) return;
+      const btn = document.getElementById('btnDelete' + (type === 'imp' ? 'Imp' : type === 'prod' ? 'Prod' : 'Pagos'));
+      const status = document.getElementById('planSaveStatus' + (type === 'imp' ? 'Imp' : type === 'prod' ? 'Prod' : 'Pagos'));
+      btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>'; btn.disabled = true;
       google.script.run
         .withSuccessHandler(r => {
-          btn.disabled=false; btn.innerHTML='<i class="fa-solid fa-trash"></i> Eliminar';
+          btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-trash"></i> Eliminar';
           if (r.error) { status.style.color='var(--danger)'; status.innerText='❌ '+r.error; return; }
-          planData = planData.filter(x => x.id !== id);
-          applyAllFilters(); closeModal('planModal');
+          
+          if (type === 'imp') planDataImp = planDataImp.filter(x => x.ID !== id);
+          if (type === 'prod') planDataProd = planDataProd.filter(x => x.ID !== id);
+          if (type === 'pagos') planDataPagos = planDataPagos.filter(x => x.ID !== id);
+          
+          updateUI();
+          closeModal('planModal' + (type === 'imp' ? 'Imp' : type === 'prod' ? 'Prod' : 'Pagos'));
         })
         .withFailureHandler(() => {
-          btn.disabled=false; btn.innerHTML='<i class="fa-solid fa-trash"></i> Eliminar';
-          status.style.color='var(--danger)'; status.innerText='❌ Error';
+          btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-trash"></i> Eliminar';
+          status.style.color='var(--danger)'; status.innerText='❌ Error de red';
         })
-        .deletePlanData(id);
+        .deletePlanData(type, id);
     }
 
     // ============================================================
@@ -1237,7 +1542,8 @@
     // ============================================================
     function switchView(view) {
       const perms = ROLE_PERMS[currentUser?.rol] || ROLE_PERMS['Deposito'];
-      if (!perms.views.includes(view)) return;
+      const baseView = view.startsWith('planning-') ? 'planning' : view;
+      if (!perms.views.includes(baseView)) return;
       currentView = view;
       document.querySelectorAll('.view-section').forEach(s => s.classList.remove('active'));
       document.querySelectorAll('.sidebar-nav li:not(.section-label)').forEach(l => l.classList.remove('active'));
@@ -1246,8 +1552,8 @@
       const advFilt  = document.getElementById('advanceFilters');
       const planFilt = document.getElementById('planFilters');
       if (advFilt && planFilt) {
-        if (view === 'planning') { advFilt.classList.add('hidden'); planFilt.classList.remove('hidden'); }
-        else                     { advFilt.classList.remove('hidden'); planFilt.classList.add('hidden'); }
+        if (view.startsWith('planning')) { advFilt.classList.add('hidden'); planFilt.classList.remove('hidden'); }
+        else                             { advFilt.classList.remove('hidden'); planFilt.classList.add('hidden'); }
       }
       updateUI();
     }
@@ -1267,6 +1573,47 @@
         }
       }
       return null;
+    }
+
+    // ============================================================
+    // EXPORTACIÓN BASE MAESTRA
+    // ============================================================
+    function exportMasterCSV() {
+      const showFin = currentUser && (currentUser.rol === 'Admin' || currentUser.rol === 'Finanzas');
+      const cols = ['Folio','Proveedor','Mercadería','Estado','Prioridad','Confirmación','ETD','ETA'];
+      if (showFin) cols.push('FOB USD', 'Seña USD', 'Balance USD');
+
+      // Helper function para CSV
+      const escapeCSV = (str) => `"${(str||'').toString().replace(/"/g, '""')}"`;
+
+      let csv = cols.join(',') + '\n';
+      
+      const sorted = [...filteredData].sort((a, b) => {
+        let vA = a[sortConfig.key], vB = b[sortConfig.key];
+        if (sortConfig.key === 'fob') { vA = parseFloat(vA)||0; vB = parseFloat(vB)||0; }
+        else if (['fecha_compra','eta','etd'].includes(sortConfig.key)) {
+          const k = sortConfig.key === 'fecha_compra' ? '_dateCompra' : `_date${sortConfig.key.toUpperCase()}`;
+          vA = a[k]||0; vB = b[k]||0;
+        }
+        return sortConfig.dir === 'asc' ? (vA > vB ? 1 : -1) : (vA < vB ? 1 : -1);
+      });
+
+      sorted.forEach(f => {
+        const row = [
+          escapeCSV(f.folio), escapeCSV(f.proveedor), escapeCSV(f.mercaderia), escapeCSV(f.estado), escapeCSV(f.prioridad),
+          escapeCSV(f.fecha_compra), escapeCSV(f.etd), escapeCSV(f.eta)
+        ];
+        if (showFin) {
+          row.push(escapeCSV(f.fob), escapeCSV(f.sena_usd), escapeCSV(f.balance_usd));
+        }
+        csv += row.join(',') + '\n';
+      });
+
+      const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' }); // BOM para Excel
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = `Base_Maestra_DISER_${new Date().toISOString().split('T')[0]}.csv`;
+      a.click(); URL.revokeObjectURL(url);
     }
   </script>
 </body>
